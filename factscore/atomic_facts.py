@@ -13,11 +13,13 @@ import time
 from nltk.tokenize import sent_tokenize
 
 from factscore.openai_lm import OpenAIModel
+from factscore.Llama3LM import Llama3LM
 
 nltk.download("punkt")
 
 
 class AtomicFactGenerator(object):
+    # TODO: Select Models for Atomic Fact Generation
     def __init__(self, key_path, demon_dir, gpt3_cache_file=None):
         self.nlp = spacy.load("en_core_web_sm")
         self.is_bio = True
@@ -335,7 +337,7 @@ def fix_sentence_splitter(curr_sentences, initials):
 
 
 def main():
-    generator = AtomicFactGenerator("api.key", "demos", gpt3_cache_dir=None)
+    generator = AtomicFactGenerator("api.key", "demos", gpt3_cache_file=None)
     atomic_facts, para_breaks = generator.run("Thierry Henry (born 17 August 1977) is a French professional football coach, pundit, and former player. He is considered one of the greatest strikers of all time, and one the greatest players of the Premier League history. He has been named Arsenal F.C's greatest ever player.\n\nHenry made his professional debut with Monaco in 1994 before signing for defending Serie A champions Juventus. However, limited playing time, coupled with disagreements with the club's hierarchy, led to him signing for Premier League club Arsenal for £11 million in 1999.")
 
     print(atomic_facts)

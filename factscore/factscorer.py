@@ -10,9 +10,11 @@ from factscore.abstain_detection import is_response_abstained
 from factscore.atomic_facts import AtomicFactGenerator
 from factscore.clm import CLM
 from factscore.npm import NPM
+from factscore.Llama3LM import Llama3LM
 from factscore.openai_lm import OpenAIModel
 from factscore.retrieval import DocDB, Retrieval
 
+# TODO: Rewrite model_name to accomodate llama31
 class FactScorer(object):
 
     def __init__(self,
@@ -23,8 +25,11 @@ class FactScorer(object):
                  openai_key="api.key",
                  cost_estimate="consider_cache",
                  abstain_detection_type=None,
+                 af_gen_model= "llama3.1-chat",
                  batch_size=256):
-        assert model_name in ["retrieval+llama", "retrieval+llama+npm", "retrieval+ChatGPT", "npm", "retrieval+ChatGPT+npm"]
+        # TODO: Alterar esquema de modelo
+        assert model_name in ["retrieval+inst-llama", "retrieval+inst-llama+npm", "retrieval+ChatGPT",
+                "npm", "retrieval+ChatGPT+npm", "retrieval+llama31+npm", ]
         self.model_name = model_name
 
         self.db = {}
@@ -42,7 +47,7 @@ class FactScorer(object):
         self.af_generator = None
         self.cost_estimate = cost_estimate
 
-        if "llama" in model_name:
+        if "inst-llama" in model_name:
             self.lm = CLM("inst-llama-7B",
                           model_dir=os.path.join(model_dir, "inst-llama-7B"),
                           cache_file=os.path.join(cache_dir, "inst-llama-7B.pkl"))
@@ -50,8 +55,11 @@ class FactScorer(object):
             self.lm = OpenAIModel("ChatGPT",
                                   cache_file=os.path.join(cache_dir, "ChatGPT.pkl"),
                                   key_path=openai_key)
+        elif "llama31" in model_name:
+            self.lm = Llama3LM("meta-llama/Llama-3.1-8B")
         else:
             self.lm = None
+        print("imported from file")
 
     def save_cache(self):
         if self.lm:
@@ -91,10 +99,11 @@ class FactScorer(object):
         # https://openai.com/pricing
         # if we use davinci-003, the cost is $0.02 per 1000 tokens
         # if we use gpt-3.5-turbo, the cost is $0.002 per 1000 tokens
+        # Davinci-003 discontinued
         if model == "davinci-003":
             rate = 0.02
         elif model == "gpt-3.5-turbo":
-            rate = 0.002
+            rate = 0.0015
 
         total_cost = total_tokens * rate / 1000
 
@@ -122,9 +131,11 @@ class FactScorer(object):
             assert type(topics)==type(generations)==list, "`topics` and `generations` should be lists."
             assert len(topics)==len(generations), "`topics` and `generations` should have the same length"
 
+        ## I can provide the Atomic Facts myself and by pass the AF generation if I want to test 
+        ## the evaluation
         if atomic_facts is not None:
             assert len(topics)==len(atomic_facts), "`topics` and `atomic_facts` should have the same length"
-        else:
+        else: #Atomic FactGeneration
             if self.af_generator is None:
                 self.af_generator = AtomicFactGenerator(key_path=self.openai_key,
                                                         demon_dir=os.path.join(self.data_dir, "demos"),
@@ -140,6 +151,7 @@ class FactScorer(object):
             if verbose:
                 topics = tqdm(topics)
 
+            ## Start obtaining Atomic Facts for each generation 
             atomic_facts = []
             for topic, gen in zip(topics, generations):
                 # optionally, first detect if the response is abstained
@@ -177,11 +189,13 @@ class FactScorer(object):
         scores = []
         init_scores = []
         decisions = []
+        # 
         for topic, generation, facts in zip(topics, generations, atomic_facts):
             if facts is None:
                 decisions.append(None)
             else:
                 decision = self._get_score(topic, generation, facts, knowledge_source)
+                # Score is the average number of "is_supported" for generation
                 score = np.mean([d["is_supported"] for d in decision])
                 
                 if gamma:
@@ -218,7 +232,7 @@ class FactScorer(object):
                 for psg_idx, psg in enumerate(reversed(passages)):
                     context += "Title: {}\nText: {}\n\n".format(psg["title"], psg["text"].replace("<s>", "").replace("</s>", ""))
                 definition += context.strip()
-                if not definition[-1] in string.punctuation:
+                if definition[-1] not in string.punctuation:
                     definition += "."
                 prompt = "{}\n\nInput: {} True or False?\nOutput:".format(definition.strip(), atom.strip())
 
@@ -259,6 +273,7 @@ class FactScorer(object):
                 is_supported = npprob > 0.3
 
             decisions.append({"atom": atom, "is_supported": is_supported})
+            # TODO: salvar as decisões do modelo
 
         if cost_estimate:
             return total_words
