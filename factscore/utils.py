@@ -5,6 +5,27 @@
 # LICENSE file in the root directory of this source tree.
 import torch
 
+LLAMA_3_INSTRUCT_TEMPLATE = """{% if messages[0]['role'] == 'system' %}
+    {% set offset = 1 %}
+{% else %}
+    {% set offset = 0 %}
+{% endif %}
+
+{{ bos_token }}
+{% for message in messages %}
+    {% if (message['role'] == 'user') != (loop.index0 % 2 == offset) %}
+        {{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}
+    {% endif %}
+
+    {{ '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n' + message['content'] | trim + '<|eot_id|>' }}
+{% endfor %}
+
+{% if add_generation_prompt %}
+    {{ '<|start_header_id|>' + 'assistant' + '<|end_header_id|>\n\n' }}
+{% endif %}
+
+"""
+
 def assert_all_approx_close(a, b, rtol, atol, count):
 
     idx = torch.isclose(a.float(), b.float(), rtol, atol)

@@ -1,6 +1,7 @@
 import pickle
 import os
 import time
+import logging
 
 class LM(object):
 
@@ -9,6 +10,7 @@ class LM(object):
         self.cache_dict = self.load_cache()
         self.model = None
         self.add_n = 0
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def load_model(self):
         # load the model and put it as self.model
@@ -23,12 +25,12 @@ class LM(object):
 
         if self.model is None:
             self.load_model()
-
         if prompt.endswith(" True or False?\nAnswer:"):
             generated = self._generate(prompt, max_sequence_length=max_sequence_length, max_output_length=1)
         else:
             generated = self._generate(prompt, max_sequence_length=max_sequence_length, max_output_length=max_output_length)
 
+        self.logger.debug(f"Generated: {generated[0]}")
         self.cache_dict[cache_key] = generated
         self.add_n += 1
         return generated

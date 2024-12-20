@@ -1,15 +1,16 @@
 import json
-import numpy as np
+import logging
+import os
 import re
+import sys
+import time
 import functools
 import string
 import spacy
-import sys
 import nltk
 import openai
 from rank_bm25 import BM25Okapi
-import os
-import time
+import numpy as np
 from nltk.tokenize import sent_tokenize
 
 from factscore.openai_lm import OpenAIModel
@@ -19,23 +20,26 @@ nltk.download("punkt")
 
 
 class AtomicFactGenerator(object):
-    # TODO: Select Models for Atomic Fact Generation
-    def __init__(self, key_path, demon_dir, gpt3_cache_file=None):
+    def __init__(self, model_name, demon_dir, key_path="", af_cache_file=None):
         self.nlp = spacy.load("en_core_web_sm")
         self.is_bio = True
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.demon_path = os.path.join(demon_dir, "demons.json" if self.is_bio else "demons_complex.json")
-
-        self.openai_lm = OpenAIModel("InstructGPT", cache_file=gpt3_cache_file, key_path=key_path)
-
+        if "ChatGPT" in model_name:
+            self.lm = OpenAIModel("InstructGPT", cache_file=af_cache_file, key_path=key_path)
+        if "llama31" in model_name:
+            self.lm = Llama3LM("meta-llama/Llama-3.1-8B-Instruct",
+                                cache_file=af_cache_file,
+                                mode="afg")
         # get the demos
-        with open(self.demon_path, 'r') as f:
+        with open(self.demon_path, 'r', encoding="utf-8") as f:
             self.demons = json.load(f)
 
         tokenized_corpus = [doc.split(" ") for doc in self.demons.keys()]
         self.bm25 = BM25Okapi(tokenized_corpus)
 
     def save_cache(self):
-        self.openai_lm.save_cache()
+        self.lm.save_cache()
 
     def run(self, generation, cost_estimate=None):
         """Convert the generation into a set of atomic facts. Return a total words cost if cost_estimate != None."""
@@ -113,31 +117,34 @@ class AtomicFactGenerator(object):
             top_machings = best_demos(sentence, self.bm25, list(demons.keys()), k)
             prompt = ""
 
-            for i in range(n):
-                prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(list(demons.keys())[i])
-                for fact in demons[list(demons.keys())[i]]:
-                    prompt = prompt + "- {}\n".format(fact)
-                prompt = prompt + "\n"
 
             for match in top_machings:
                 prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(match)
                 for fact in demons[match]:
                     prompt = prompt + "- {}\n".format(fact)
                 prompt = prompt + "\n"
-            prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(sentence)
+
+            if self.lm.model_name == "InstructGPT":
+                for i in range(n):
+                    prompt = prompt + f"Please breakdown the following sentence into independent facts: {list(demons.keys())[i]}\n"
+                    for fact in demons[list(demons.keys())[i]]:
+                        prompt = prompt + f"- {fact}\n"
+                    prompt = prompt + "\n"
+
+            prompt = prompt + f"Please breakdown the following sentence into independent facts: {sentence}\n"
             prompts.append(prompt)
             prompt_to_sent[prompt] = sentence
 
         if cost_estimate:
             total_words_estimate = 0
             for prompt in prompts:
-                if cost_estimate == "consider_cache" and (prompt.strip() + "_0") in self.openai_lm.cache_dict:
+                if cost_estimate == "consider_cache" and (prompt.strip() + "_0") in self.lm.cache_dict:
                     continue
                 total_words_estimate += len(prompt.split())
             return total_words_estimate
         else:
             for prompt in prompts:
-                output, _ = self.openai_lm.generate(prompt)
+                output, _ = self.lm.generate(prompt)
                 atoms[prompt_to_sent[prompt]] = text_to_sentences(output)
 
             for key, value in demons.items():
@@ -337,7 +344,7 @@ def fix_sentence_splitter(curr_sentences, initials):
 
 
 def main():
-    generator = AtomicFactGenerator("api.key", "demos", gpt3_cache_file=None)
+    generator = AtomicFactGenerator("llama31", "demos", af_cache_file=None)
     atomic_facts, para_breaks = generator.run("Thierry Henry (born 17 August 1977) is a French professional football coach, pundit, and former player. He is considered one of the greatest strikers of all time, and one the greatest players of the Premier League history. He has been named Arsenal F.C's greatest ever player.\n\nHenry made his professional debut with Monaco in 1994 before signing for defending Serie A champions Juventus. However, limited playing time, coupled with disagreements with the club's hierarchy, led to him signing for Premier League club Arsenal for £11 million in 1999.")
 
     print(atomic_facts)

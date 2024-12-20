@@ -14,24 +14,27 @@ from factscore.Llama3LM import Llama3LM
 from factscore.openai_lm import OpenAIModel
 from factscore.retrieval import DocDB, Retrieval
 
-# TODO: Rewrite model_name to accomodate llama31
 class FactScorer(object):
-
     def __init__(self,
-                 model_name="retrieval+ChatGPT",
+                 afv_model="Llama-3.1-8B-Instruct",
+                 afg_model= "Llama-3.1-8B-Instruct",
+                 is_npm=True,
+                 is_retrieval=True,
                  data_dir=".cache/factscore",
                  model_dir=".cache/factscore",
                  cache_dir=".cache/factscore",
                  openai_key="api.key",
                  cost_estimate="consider_cache",
                  abstain_detection_type=None,
-                 af_gen_model= "llama3.1-chat",
                  batch_size=256):
-        # TODO: Alterar esquema de modelo
-        assert model_name in ["retrieval+inst-llama", "retrieval+inst-llama+npm", "retrieval+ChatGPT",
-                "npm", "retrieval+ChatGPT+npm", "retrieval+llama31+npm", ]
-        self.model_name = model_name
-
+        self.afg_model = afg_model
+        self.afv_model = afv_model
+        self.is_npm = is_npm
+        self.is_retrieval = is_retrieval
+#        assert model_name in ["retrieval+inst-llama", "retrieval+inst-llama+npm", "retrieval+ChatGPT",
+#                "npm", "retrieval+ChatGPT+npm", "retrieval+llama31+npm","retrieval+llama31" ]
+        self.model_name = self.generate_model_name()
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.db = {}
         self.retrieval = {}
         self.npm = {}
@@ -46,20 +49,29 @@ class FactScorer(object):
 
         self.af_generator = None
         self.cost_estimate = cost_estimate
-
-        if "inst-llama" in model_name:
+        if "inst-llama" in self.model_name:
             self.lm = CLM("inst-llama-7B",
                           model_dir=os.path.join(model_dir, "inst-llama-7B"),
                           cache_file=os.path.join(cache_dir, "inst-llama-7B.pkl"))
-        elif "ChatGPT" in model_name:
+        elif "ChatGPT" in self.model_name:
             self.lm = OpenAIModel("ChatGPT",
                                   cache_file=os.path.join(cache_dir, "ChatGPT.pkl"),
                                   key_path=openai_key)
-        elif "llama31" in model_name:
-            self.lm = Llama3LM("meta-llama/Llama-3.1-8B")
+        elif "Llama-3.1" in self.model_name:
+            self.lm = Llama3LM("meta-llama/"+ self.afv_model,
+                                cache_file=os.path.join(cache_dir, self.model_name))
         else:
             self.lm = None
-        print("imported from file")
+        self.logger.debug("%s",self.model_name)
+
+    def generate_model_name(self):
+        model_name = [self.afg_model, self.afv_model]
+        if self.is_npm:
+            model_name.append("npm")
+        if self.is_retrieval:
+            model_name.insert(0,"retrieval")
+        model_name = "+".join(model_name)
+        return model_name
 
     def save_cache(self):
         if self.lm:
@@ -108,7 +120,8 @@ class FactScorer(object):
         total_cost = total_tokens * rate / 1000
 
         # print the total words, tokens, and cost along with rate
-        logging.critical("Estimated OpenAI API cost for %s ($%.3f per 1000 tokens): $%.2f for %d words and %d tokens" % (task, rate, total_cost, total_words, total_tokens))
+        logging.critical("""Estimated OpenAI API cost for %s ($%.3f per 1000 tokens): 
+        $%.2f for %d words and %d tokens",task, rate, total_cost, total_words, total_tokens""")
 
     def get_score(self,
                   topics,
@@ -223,6 +236,7 @@ class FactScorer(object):
     def _get_score(self, topic, generation, atomic_facts, knowledge_source, cost_estimate=None):
         decisions = []
         total_words = 0
+        # Prompt Construction
         for atom in atomic_facts:
             atom = atom.strip()
             if self.lm:
@@ -234,7 +248,7 @@ class FactScorer(object):
                 definition += context.strip()
                 if definition[-1] not in string.punctuation:
                     definition += "."
-                prompt = "{}\n\nInput: {} True or False?\nOutput:".format(definition.strip(), atom.strip())
+                prompt = "{}\n\nInput: {} True or False?\nAnswer:".format(definition.strip(), atom.strip())
 
                 if cost_estimate:
                     if cost_estimate == "consider_cache" and (prompt.strip() + "_0") not in self.lm.cache_dict:
@@ -242,16 +256,24 @@ class FactScorer(object):
                     elif cost_estimate == "ignore_cache":
                         total_words += len(prompt.split())
                     continue
+                # TODO: Log the prompts
 
                 output = self.lm.generate(prompt)
 
-                if type(output[1])==np.ndarray:
-                    # when logits are available
+                if type(output[1])==np.ndarray and "llama31" not in self.model_name:
                     logits = np.array(output[1])
                     assert logits.shape[0] in [32000, 32001]
-                    true_score = logits[5852]
-                    false_score = logits[7700]
+                    true_ix = 5852
+                    false_ix = 7700
+                    # when logits are available,
+                    true_score = logits[true_ix]
+                    false_score = logits[false_ix]
                     is_supported = true_score > false_score
+                    self.logger.debug("-------------------")
+                    self.logger.debug(f"Prompt: {prompt}")
+                    self.logger.debug(f'\nLogits:\nTrue: {true_score}\nFalse: {false_score}\n is_supported: {is_supported}')
+                    self.logger.debug(f'Output: {output[0]}')
+                    self.logger.debug("-------------------")
                 else:
                     # when logits are unavailable
                     generated_answer = output[0].lower()
@@ -336,7 +358,8 @@ if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s - %(name)s - %(message)s',
                         datefmt='%m/%d/%Y %H:%M:%S',
                         level=logging.ERROR if args.print_rate_limit_error else logging.CRITICAL)
-
+    
+    # TODO: Refactor command line interface
     fs = FactScorer(model_name=args.model_name,
                     data_dir=args.data_dir,
                     model_dir=args.model_dir,
@@ -369,13 +392,14 @@ if __name__ == '__main__':
                        atomic_facts=atomic_facts if args.use_atomic_facts else None,
                        knowledge_source=args.knowledge_source,
                        verbose=args.verbose)
-    logging.critical("FActScore = %.1f%%" % (100*out["score"]))
+    logging.critical("FActScore = %.1f%%", (100*out["score"]))
     if "init_score" in out:
-        logging.critical("FActScore w/o length penalty = %.1f%%" % (100*out["init_score"]))
-    logging.critical("Respond ratio = %.1f%%" % (100*out["respond_ratio"]))
-    logging.critical("# Atomic facts per valid response = %.1f" % (out["num_facts_per_response"]))
+        logging.critical("FActScore w/o length penalty = %.1f%%", (100*out["init_score"]))
+    logging.critical("Respond ratio = %.1f%%" , (100*out["respond_ratio"]))
+    logging.critical("# Atomic facts per valid response = %.1f", (out["num_facts_per_response"]))
 
     # Save out as a json file
-    with open(args.input_path.replace(".jsonl", f"_factscore_output.json"), 'w') as f:
+    
+    with open(args.input_path.replace(".jsonl", "_factscore_output.json"), 'w', encoding="utf8") as f:
         f.write(json.dumps(out) + "\n")
 

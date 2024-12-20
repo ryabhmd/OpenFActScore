@@ -1,6 +1,7 @@
 import json
 import time
 import os
+import logging
 
 import sqlite3
 import numpy as np
@@ -122,6 +123,7 @@ class Retrieval(object):
         self.load_cache()
         self.add_n = 0
         self.add_n_embed = 0
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def load_encoder(self):
         from sentence_transformers import SentenceTransformer
@@ -174,6 +176,7 @@ class Retrieval(object):
         return [passages[i] for i in indices]
 
     def get_gtr_passages(self, topic, retrieval_query, passages, k):
+        self.logger.debug(f"topic: {topic}, retrieval_query: {retrieval_query},k={k} passages:\n{passages}")
         if self.encoder is None:
             self.load_encoder()
         if topic in self.embed_cache:
@@ -191,6 +194,7 @@ class Retrieval(object):
         return [passages[i] for i in indices]
 
     def get_passages(self, topic, question, k):
+        self.logger.debug(f"retrieving passages with {self.retrieval_type}")
         retrieval_query = topic + " " + question.strip()
         cache_key = topic + "#" + retrieval_query
         
