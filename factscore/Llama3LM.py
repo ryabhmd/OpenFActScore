@@ -52,6 +52,15 @@ class Llama3LM(LM):
         chat_template = chat_template.replace('    ', '').replace('\n', '')
         self.tokenizer.chat_template = chat_template
 
+    def unload_model(self):
+        """
+        Unloads the model and clears the memory.
+        """
+        del self.model  # Delete the model object
+        torch.cuda.empty_cache()  # Free up GPU memory
+        self.logger.debug("Model unloaded and GPU memory cleared.")
+
+
     def _generate(self, prompts, max_sequence_length=2048, max_output_length=128,
                   end_if_newline=False, end_if_second_newline=False, verbose=False):
         is_single = type(prompts)==str
