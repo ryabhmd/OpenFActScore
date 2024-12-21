@@ -1,23 +1,24 @@
 import argparse
 import string
 import json
-import numpy as np
-import os
 import logging
+import os
+import numpy as np
 
 from tqdm import tqdm
 from factscore.abstain_detection import is_response_abstained
 from factscore.atomic_facts import AtomicFactGenerator
 from factscore.clm import CLM
 from factscore.npm import NPM
-from factscore.Llama3LM import Llama3LM
 from factscore.openai_lm import OpenAIModel
+import factscore
+from factscore.Llama3LM import Llama3LM
 from factscore.retrieval import DocDB, Retrieval
 
 class FactScorer(object):
     def __init__(self,
                  afv_model="Llama-3.1-8B-Instruct",
-                 afg_model= "Llama-3.1-8B-Instruct",
+                 afg_model="Llama-3.1-8B-Instruct",
                  is_npm=True,
                  is_retrieval=True,
                  data_dir=".cache/factscore",
@@ -120,7 +121,7 @@ class FactScorer(object):
         total_cost = total_tokens * rate / 1000
 
         # print the total words, tokens, and cost along with rate
-        logging.critical("""Estimated OpenAI API cost for %s ($%.3f per 1000 tokens): 
+        logging.critical("""Estimated OpenAI API cost for %s ($%.3f per 1000 tokens):
         $%.2f for %d words and %d tokens",task, rate, total_cost, total_words, total_tokens""")
 
     def get_score(self,
@@ -150,16 +151,18 @@ class FactScorer(object):
             assert len(topics)==len(atomic_facts), "`topics` and `atomic_facts` should have the same length"
         else: #Atomic FactGeneration
             if self.af_generator is None:
-                self.af_generator = AtomicFactGenerator(key_path=self.openai_key,
+                self.af_generator = AtomicFactGenerator(model_name=self.afg_model,
                                                         demon_dir=os.path.join(self.data_dir, "demos"),
-                                                        gpt3_cache_file=os.path.join(self.cache_dir, "InstructGPT.pkl"))
+                                                        key_path=self.openai_key,
+                                                        af_cache_file=os.path.join(self.cache_dir, "InstructGPT.pkl"))
 
             # estimate the total cost of atomic fact generation
-            total_words = 0
-            for gen in generations:
-                total_words += self.af_generator.run(gen, cost_estimate=self.cost_estimate)
+            if "ChatGPT" in self.model_name:
+                total_words = 0
+                for gen in generations:
+                    total_words += self.af_generator.run(gen, cost_estimate=self.cost_estimate)
 
-            self.print_cost_estimates(total_words, task="atomic fact generation", model="davinci-003")
+                self.print_cost_estimates(total_words, task="atomic fact generation", model="davinci-003")
 
             if verbose:
                 topics = tqdm(topics)
@@ -184,6 +187,7 @@ class FactScorer(object):
 
             assert len(atomic_facts)==len(topics)
             self.af_generator.save_cache()
+            self.af_generator.lm.unload_model()
 
         respond_ratio = np.mean([facts is not None for facts in atomic_facts])
 
@@ -260,7 +264,7 @@ class FactScorer(object):
 
                 output = self.lm.generate(prompt)
 
-                if type(output[1])==np.ndarray and "llama31" not in self.model_name:
+                if type(output[1])==np.ndarray and "Llama-3.1-8B-Instruct" not in self.model_name:
                     logits = np.array(output[1])
                     assert logits.shape[0] in [32000, 32001]
                     true_ix = 5852
@@ -301,105 +305,125 @@ class FactScorer(object):
             return total_words
         else:
             return decisions
-
+            
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--input_path',
-                        type=str,
-                        default="data/labeled/InstructGPT.jsonl")
-    parser.add_argument('--model_name',
-                        type=str,
-                        default="retrieval+ChatGPT")
-    parser.add_argument('--gamma',
-                        type=int,
-                        default=10,
-                        help="hyperparameter for length penalty")
+    parser = argparse.ArgumentParser(description="Compute FactScore for generated outputs.")
 
-    parser.add_argument('--openai_key',
-                        type=str,
-                        default="api.key")
-    parser.add_argument('--data_dir',
-                        type=str,
-                        default=".cache/factscore/")
-    parser.add_argument('--model_dir',
-                        type=str,
-                        default=".cache/factscore/")
-    parser.add_argument('--cache_dir',
-                        type=str,
-                        default=".cache/factscore/")
-    parser.add_argument('--knowledge_source',
-                        type=str,
-                        default=None)
+    # Required arguments
+    parser.add_argument('--input_path', type=str, required=True,
+                        help="Path to the input JSONL file containing topics and generations.")
 
+    # Model configuration arguments
+    parser.add_argument('--afv_model', type=str, default="Llama-3.1-8B-Instruct",
+                        help="Name of the Atomic Fact Verification model.")
+    parser.add_argument('--afg_model', type=str, default="Llama-3.1-8B-Instruct",
+                        help="Name of the Atomic Fact Generation model.")
+    parser.add_argument('--is_npm', action='store_false',
+                        help="Flag to enable Neural Probabilistic Model (NPM).")
+    parser.add_argument('--is_retrieval', action='store_false',
+                        help="Flag to enable retrieval-based scoring.")
 
-    parser.add_argument('--cost_estimate',
-                        type=str,
-                        default="consider_cache",
-                        choices=["consider_cache", "ignore_cache"])
-    parser.add_argument('--abstain_detection_type',
-                        type=str,
-                        default=None,
-                        choices=["perplexity_ai", "generic", "none"])
-    parser.add_argument('--use_atomic_facts',
-                        action="store_true")
-    parser.add_argument('--verbose',
-                        action="store_true",
-                        help="for printing out the progress bar")    
-    parser.add_argument('--print_rate_limit_error',
-                        action="store_true",
-                        help="for printing out rate limit error when using OpenAI keys")
-    parser.add_argument('--n_samples',
-                        type=int,
-                        default=None)
+    # Directories and paths
+    parser.add_argument('--data_dir', type=str, default=".cache/factscore",
+                        help="Directory to store data files.")
+    parser.add_argument('--model_dir', type=str, default=".cache/factscore",
+                        help="Directory to store model files.")
+    parser.add_argument('--cache_dir', type=str, default=".cache/factscore",
+                        help="Directory to store cache files.")
+    parser.add_argument('--openai_key', type=str, default="api.key",
+                        help="Path to the OpenAI API key file.")
+
+    # Evaluation configuration
+    parser.add_argument('--gamma', type=int, default=10,
+                        help="Hyperparameter for length penalty.")
+    parser.add_argument('--knowledge_source', type=str, default=None,
+                        help="Name of the knowledge source for retrieval.")
+    parser.add_argument('--cost_estimate', type=str, default="consider_cache",
+                        choices=["consider_cache", "ignore_cache"],
+                        help="Option to consider or ignore cache in cost estimation.")
+    parser.add_argument('--abstain_detection_type', type=str, default=None,
+                        choices=["perplexity_ai", "generic", "none"],
+                        help="Type of abstain detection to use.")
+
+    # Optional settings
+    parser.add_argument('--use_atomic_facts', action='store_true',
+                        help="Flag to use pre-existing atomic facts in the input data.")
+    parser.add_argument('--verbose', action='store_true',
+                        help="Enable verbose mode with progress bars.")
+    parser.add_argument('--print_rate_limit_error', action='store_true',
+                        help="Print rate limit errors when using OpenAI keys.")
+    parser.add_argument('--n_samples', type=int, default=None,
+                        help="Limit the number of samples to process.")
+    parser.add_argument('--debug_logger', action='store_true',
+                        help="Set logger level to debug")
 
     args = parser.parse_args()
 
     logging.basicConfig(format='%(asctime)s - %(name)s - %(message)s',
                         datefmt='%m/%d/%Y %H:%M:%S',
-                        level=logging.ERROR if args.print_rate_limit_error else logging.CRITICAL)
-    
-    # TODO: Refactor command line interface
-    fs = FactScorer(model_name=args.model_name,
-                    data_dir=args.data_dir,
-                    model_dir=args.model_dir,
-                    cache_dir=args.cache_dir,
-                    openai_key=args.openai_key,
-                    cost_estimate=args.cost_estimate,
-                    abstain_detection_type=args.abstain_detection_type)
+                        filename=os.path.join(os.getcwd(), __file__.replace(".py",".log")),
+                        level=logging.DEBUG if args.debug_logger else logging.CRITICAL)
 
-    tot = 0
+    logger = logging.getLogger(__name__)
+    # Initialize FactScorer with parsed arguments
+    fs = FactScorer(
+        afv_model=args.afv_model,
+        afg_model=args.afg_model,
+        is_npm=args.is_npm,
+        is_retrieval=args.is_retrieval,
+        data_dir=args.data_dir,
+        model_dir=args.model_dir,
+        cache_dir=args.cache_dir,
+        openai_key=args.openai_key,
+        cost_estimate=args.cost_estimate,
+        abstain_detection_type=args.abstain_detection_type
+    )
+
     topics, generations, atomic_facts = [], [], []
-    with open(args.input_path) as f:
+    tot = 0
+    logger.critical("Initialized FactScore")
+    # Read input file
+    with open(args.input_path, 'r', encoding='utf8') as f:
         for line in f:
             dp = json.loads(line)
             tot += 1
             if args.use_atomic_facts:
-                assert "annotations" in dp, "You can specify `--use_atomic_facts` only when atomic facts are available in the input data already."
+                assert "annotations" in dp, "`--use_atomic_facts` requires `annotations` in the input data."
                 if dp["annotations"] is None:
                     continue
                 topics.append(dp["topic"])
                 generations.append(dp["output"])
-                atomic_facts.append([atom["text"] for sent in dp["annotations"] for atom in sent["model-atomic-facts"]])
+                atomic_facts.append([
+                    atom["text"] for sent in dp["annotations"] for atom in sent["model-atomic-facts"]
+                ])
             else:
                 topics.append(dp["topic"])
                 generations.append(dp["output"])
-            if args.n_samples is not None and tot==args.n_samples:
+            if args.n_samples is not None and tot == args.n_samples:
                 break
-    out = fs.get_score(topics=topics,
-                       generations=generations,
-                       gamma=args.gamma,
-                       atomic_facts=atomic_facts if args.use_atomic_facts else None,
-                       knowledge_source=args.knowledge_source,
-                       verbose=args.verbose)
-    logging.critical("FActScore = %.1f%%", (100*out["score"]))
-    if "init_score" in out:
-        logging.critical("FActScore w/o length penalty = %.1f%%", (100*out["init_score"]))
-    logging.critical("Respond ratio = %.1f%%" , (100*out["respond_ratio"]))
-    logging.critical("# Atomic facts per valid response = %.1f", (out["num_facts_per_response"]))
 
-    # Save out as a json file
-    
-    with open(args.input_path.replace(".jsonl", "_factscore_output.json"), 'w', encoding="utf8") as f:
-        f.write(json.dumps(out) + "\n")
+    logger.debug("Preparing to get scores")
+    # Compute scores
+    results = fs.get_score(
+        topics=topics,
+        generations=generations,
+        gamma=args.gamma,
+        atomic_facts=atomic_facts if args.use_atomic_facts else None,
+        knowledge_source=args.knowledge_source,
+        verbose=args.verbose
+    )
 
+    # Log results
+    logging.critical("FactScore = %.1f%%", (100 * results["score"]))
+    if "init_score" in results:
+        logging.critical("FactScore w/o length penalty = %.1f%%", (100 * results["init_score"]))
+    logging.critical("Respond ratio = %.1f%%", (100 * results["respond_ratio"]))
+    logging.critical("# Atomic facts per valid response = %.1f", results["num_facts_per_response"])
+
+    # Save results to output file
+    output_path = args.input_path.replace(".jsonl", "_factscore_output.json")
+    with open(output_path, 'w', encoding='utf8') as f:
+        json.dump(results, f, indent=4)
+
+    print(f"Results saved to {output_path}")

@@ -27,7 +27,7 @@ class AtomicFactGenerator(object):
         self.demon_path = os.path.join(demon_dir, "demons.json" if self.is_bio else "demons_complex.json")
         if "ChatGPT" in model_name:
             self.lm = OpenAIModel("InstructGPT", cache_file=af_cache_file, key_path=key_path)
-        if "llama31" in model_name:
+        if "Llama-3.1-8B-Instruct" in model_name:
             self.lm = Llama3LM("meta-llama/Llama-3.1-8B-Instruct",
                                 cache_file=af_cache_file,
                                 mode="afg")
