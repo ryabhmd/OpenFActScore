@@ -1,22 +1,26 @@
-[tool.poetry]
-name = "factscore"
-version = "0.2.0"
-description = "FactScore is an automatic evaluation metric for factual precision in long-form text generation. It uses large language models and retrieval to break down generations into atomic facts and then measure the correctness with respect to a knowledge source (like Wikipedia)."
-authors = ["Sewon Min <sewon@cs.washington.edu>", "Kalpesh Krishna <kalpesh@cs.umass.edu>", "Xinxi Lyu <alrope@cs.washington.edu>"]
-license = "MIT"
+[project]
+name = "OpenFactscore"
+version = "0.1.0"
+description = "OpenFactScore is an automatic evaluation metric for factual precision in long-form text generation based on FactScore. It replaces IntructGPT for Atomic Fact Generation and ChatGPT for Atomic Fact Verification for Instruct Llama-8B"
+authors = [
+    { name = "Lucas Fonseca Lage", email = "lufo01@dfki.de" },
+]
+license = { text = "MIT" }
 readme = "README.md"
-
-[tool.poetry.dependencies]
-python = "^3.7.1"
-torch = "^1.13.0"
-sentence-transformers = "^2.2.2"
-transformers = "^4.29.2"
-openai = "^0.27.7"
-rank-bm25 = "^0.2.2"
-spacy = "^3.5.3"
-pysqlite-binary = "^0.5.0"
-nltk = "^3.8.1"
+dependencies = [
+    "torch>=1.13.0",
+    "sentence-transformers>=2.2.2",
+    "transformers>=4.29.2",
+    "openai>=0.27.7",
+    "rank-bm25>=0.2.2",
+    "spacy>=3.5.3",
+    "pysqlite-binary>=0.5.0",
+    "nltk>=3.8.1"
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools", "setuptools-scm", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["factscore"]
