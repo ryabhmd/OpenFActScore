@@ -11,7 +11,6 @@ from factscore.atomic_facts import AtomicFactGenerator
 from factscore.clm import CLM
 from factscore.npm import NPM
 from factscore.openai_lm import OpenAIModel
-import factscore
 from factscore.Llama3LM import Llama3LM
 from factscore.retrieval import DocDB, Retrieval
 
@@ -305,7 +304,14 @@ class FactScorer(object):
             return total_words
         else:
             return decisions
-            
+
+def convert_to_serializable(obj):
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    if isinstance(obj, np.ndarray):  # If arrays are involved
+        return obj.tolist()
+    raise TypeError(f"Type {type(obj)} not serializable")
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Compute FactScore for generated outputs.")
@@ -395,7 +401,7 @@ if __name__ == '__main__':
                 topics.append(dp["topic"])
                 generations.append(dp["output"])
                 atomic_facts.append([
-                    atom["text"] for sent in dp["annotations"] for atom in sent["model-atomic-facts"]
+                    atom["text"] for sent in dp["annotations"] for atom in sent["llama-atomic-facts"]
                 ])
             else:
                 topics.append(dp["topic"])
@@ -424,6 +430,6 @@ if __name__ == '__main__':
     # Save results to output file
     output_path = args.input_path.replace(".jsonl", "_factscore_output.json")
     with open(output_path, 'w', encoding='utf8') as f:
-        json.dump(results, f, indent=4)
+        f.write(json.dumps(results, default=convert_to_serializable, indent=4) + "\n")
 
     print(f"Results saved to {output_path}")

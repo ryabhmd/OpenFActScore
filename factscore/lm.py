@@ -26,11 +26,13 @@ class LM(object):
         if self.model is None:
             self.load_model()
         if prompt.endswith(" True or False?\nAnswer:"):
-            generated = self._generate(prompt, max_sequence_length=max_sequence_length, max_output_length=1)
+            max_output_length=3
+            generated = self._generate(prompt, max_sequence_length=max_sequence_length, max_output_length=max_output_length)
         else:
             generated = self._generate(prompt, max_sequence_length=max_sequence_length, max_output_length=max_output_length)
 
-        self.logger.debug(f"Generated: {generated[0]}")
+        self.logger.debug("Max out len: %s", max_output_length)
+        self.logger.debug("Generated: %s", generated[0])
         self.cache_dict[cache_key] = generated
         self.add_n += 1
         return generated
