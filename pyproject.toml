@@ -18,6 +18,10 @@ dependencies = [
     "nltk>=3.8.1"
 ]
 
+[project.urls]
+# Documentation = "https://readthedocs.org"
+Repository = "https://github.com/lflage/OpenFActScore"
+
 [build-system]
 requires = ["setuptools", "setuptools-scm", "wheel"]
 build-backend = "setuptools.build_meta"
