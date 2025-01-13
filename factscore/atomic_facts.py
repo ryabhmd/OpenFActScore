@@ -145,6 +145,7 @@ class AtomicFactGenerator(object):
         else:
             for prompt in prompts:
                 output, _ = self.lm.generate(prompt)
+                output = output.replace("<|eot_id|>", "")
                 atoms[prompt_to_sent[prompt]] = text_to_sentences(output)
 
             for key, value in demons.items():
