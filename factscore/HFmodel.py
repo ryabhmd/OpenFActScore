@@ -1,56 +1,53 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-
-import os
-import math
 import logging
-import time
 import json
-from collections import defaultdict
-import numpy as np
 import torch
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 from .utils import LLAMA_3_INSTRUCT_TEMPLATE
 
-# from factscore.utils import convert_model_to_int8_on_gpu
 from .lm import LM
 
-class Llama3LM(LM):
+class HFmodel(LM):
     def __init__(self,
                  model_name,
-                 model_dir=None,
                  cache_file=None,
                  mode="afv"):
         if mode not in {"afv","afg"}:
             raise ValueError(f"allowed modes are afg, afv. Not {mode}")
         self.mode = mode
         self.model_name = model_name
-        self.model_dir = model_dir
         if cache_file:
             super().__init__(cache_file)
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def load_model(self):
-        if self.model_dir:
-            self.model = AutoModelForCausalLM.from_pretrained(self.model_dir).to("cuda")
-        else:
-            self.model = AutoModelForCausalLM.from_pretrained(self.model_name).to("cuda")
-        # self.model = convert_model_to_int8_on_gpu(self.mdel, device='cuda')
+        # Load model from HuggingFace
+        self.model = AutoModelForCausalLM.from_pretrained(self.model_name).to("cuda")
+        # Load Tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        # setting pad token as end of sentence token
-        self.tokenizer.pad_token=self.tokenizer.eos_token
-        self.model.generation_config.pad_token_id = self.tokenizer.eos_token_id
+
         self.logger.debug(f"Loaded model name: {self.model.config._name_or_path}")
+
+
+        # Check for chat_template
         # Defining Chat_template
-#        chat_template = open('/netscratch/fonseca/OpenFActScore/.cache/llama-3-instruct.jinja').read()
-        chat_template = LLAMA_3_INSTRUCT_TEMPLATE
-        chat_template = chat_template.replace('    ', '').replace('\n', '')
-        self.tokenizer.chat_template = chat_template
+        if "chat_template" in self.tokenizer.init_kwargs:
+            self.use_chat = True
+        else:
+            self.use_chat = False
+            
+        # Is it possible to use logits
+        self.true_id = self.tokenizer.convert_tokens_to_ids(["True"])
+        self.false_id = self.tokenizer.convert_tokens_to_ids(["False"])
+        if len(self.true_id) > 2:
+            self.logits = False
+        if len(self.true_id) == 2:
+            self.logits = True
+            self.true_id = self.true_id[-1]
+            self.false_id = self.false_id[-1]
+        else:
+            self.logits = True
+
 
     def unload_model(self):
         """
@@ -66,10 +63,11 @@ class Llama3LM(LM):
         is_single = type(prompts)==str
         if is_single:
             prompts = [prompts]
-        
-        if self.mode=="afv":
+        if self.logits is False and self.mode == "afv":
             max_output_length = 3
-        prompts = self.chat_formatter(prompts)
+
+        if self.use_chat:
+            prompts = self.chat_formatter(prompts)
         tokens = self.tokenizer(prompts)
         input_ids = tokens.input_ids
         attention_masks = tokens.attention_mask
@@ -102,8 +100,6 @@ class Llama3LM(LM):
                 print ("Input:", prompts[0])
                 print ("Prediction:", gen)
 
-            if self.model_name.startswith("llama-sni"):
-                gen = en.split("</s>")[0]
             self.logger.debug("scores: %s\ntokens:%s\ngen:%s", gen_scores, gen_tokens, gen)
             generations.append(gen)
             scores.append(gen_scores)
@@ -150,7 +146,7 @@ if __name__ == "__main__":
     name = "meta-llama/Llama-3.1-8B-Instruct"  # Replace with your actual model path if needed
 
     # Initialize the Llama3LM class
-    llama_model = Llama3LM(model_name=name)
+    llama_model = HFmodel(model_name=name)
 
     # Load the model and tokenizer
     llama_model.load_model()

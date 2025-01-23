@@ -26,7 +26,7 @@ class LM(object):
         if self.model is None:
             self.load_model()
         if prompt.endswith(" True or False?\nAnswer:"):
-            max_output_length=3
+            max_output_length=1
             generated = self._generate(prompt, max_sequence_length=max_sequence_length, max_output_length=max_output_length)
         else:
             generated = self._generate(prompt, max_sequence_length=max_sequence_length, max_output_length=max_output_length)

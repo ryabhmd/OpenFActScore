@@ -12,12 +12,13 @@ from factscore.clm import CLM
 from factscore.npm import NPM
 from factscore.openai_lm import OpenAIModel
 from factscore.Llama3LM import Llama3LM
+from factscore.HFmodel import HFmodel
 from factscore.retrieval import DocDB, Retrieval
 
 class FactScorer(object):
     def __init__(self,
-                 afv_model="Llama-3.1-8B-Instruct",
-                 afg_model="Llama-3.1-8B-Instruct",
+                 afv_model="meta-llama/Llama-3.1-8B-Instruct",
+                 afg_model="meta-llama/Llama-3.1-8B-Instruct",
                  is_npm=True,
                  is_retrieval=True,
                  data_dir=".cache/factscore",
@@ -33,7 +34,7 @@ class FactScorer(object):
         self.is_retrieval = is_retrieval
 #        assert model_name in ["retrieval+inst-llama", "retrieval+inst-llama+npm", "retrieval+ChatGPT",
 #                "npm", "retrieval+ChatGPT+npm", "retrieval+llama31+npm","retrieval+llama31" ]
-        self.model_name = self.generate_model_name()
+        self.model_name = self.generate_config_name()
         self.logger = logging.getLogger(self.__class__.__name__)
         self.db = {}
         self.retrieval = {}
@@ -57,15 +58,18 @@ class FactScorer(object):
             self.lm = OpenAIModel("ChatGPT",
                                   cache_file=os.path.join(cache_dir, "ChatGPT.pkl"),
                                   key_path=openai_key)
-        elif "Llama-3.1" in self.model_name:
-            self.lm = Llama3LM("meta-llama/"+ self.afv_model,
+        elif "Llama-3.1" in self.afv_model:
+            self.lm = Llama3LM(self.afv_model,
                                 cache_file=os.path.join(cache_dir, self.model_name))
         else:
-            self.lm = None
+            self.lm = HFmodel(self.afv_model,
+                                cache_file=os.path.join(cache_dir, self.model_name))
         self.logger.debug("%s",self.model_name)
 
-    def generate_model_name(self):
-        model_name = [self.afg_model, self.afv_model]
+    def generate_config_name(self):
+        afg_name = self.afg_model.split('/')[-1]
+        afv_name = self.afv_model.split('/')[-1]
+        model_name = [afg_name, afv_name]
         if self.is_npm:
             model_name.append("npm")
         if self.is_retrieval:
@@ -229,7 +233,8 @@ class FactScorer(object):
         out = {"score": np.mean(scores),
                "respond_ratio": respond_ratio,
                "decisions": decisions,
-               "num_facts_per_response": np.mean([len(d) for d in decisions if d is not None])}
+               "num_facts_per_response": np.mean([len(d) for d in decisions if d is not None]),
+               "config_name": self.model_name}
 
         if gamma:
             out["init_score"] = np.mean(init_scores)
@@ -259,22 +264,20 @@ class FactScorer(object):
                     elif cost_estimate == "ignore_cache":
                         total_words += len(prompt.split())
                     continue
-                # TODO: Log the prompts
 
                 output = self.lm.generate(prompt)
 
-                if type(output[1])==np.ndarray and "Llama-3.1-8B-Instruct" not in self.model_name:
+                if isinstance(output[1], np.ndarray) and self.lm.logits:
+                    # TODO: assert with tokenizer vocab len
                     logits = np.array(output[1])
-                    assert logits.shape[0] in [32000, 32001]
-                    true_ix = 5852
-                    false_ix = 7700
                     # when logits are available,
-                    true_score = logits[true_ix]
-                    false_score = logits[false_ix]
+                    true_score = logits[self.lm.true_id]
+                    false_score = logits[self.lm.false_id]
                     is_supported = true_score > false_score
+                    is_supported = is_supported.item()
                     self.logger.debug("-------------------")
                     self.logger.debug(f"Prompt: {prompt}")
-                    self.logger.debug(f'\nLogits:\nTrue: {true_score}\nFalse: {false_score}\n is_supported: {is_supported}')
+                    self.logger.debug(f'\nLogits:\nTrue: {true_score}\nFalse: {false_score}\nis_supported: {is_supported}')
                     self.logger.debug(f'Output: {output[0]}')
                     self.logger.debug("-------------------")
                 else:
