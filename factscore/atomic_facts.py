@@ -15,6 +15,7 @@ from nltk.tokenize import sent_tokenize
 
 from factscore.openai_lm import OpenAIModel
 from factscore.Llama3LM import Llama3LM
+from factscore.HFmodel import HFmodel
 
 nltk.download("punkt")
 
@@ -31,6 +32,10 @@ class AtomicFactGenerator(object):
             self.lm = Llama3LM("meta-llama/Llama-3.1-8B-Instruct",
                                 cache_file=af_cache_file,
                                 mode="afg")
+        else:
+            self.lm = HFmodel(model_name,
+                              cache_file=af_cache_file,
+                              mode="afg")
         # get the demos
         with open(self.demon_path, 'r', encoding="utf-8") as f:
             self.demons = json.load(f)
