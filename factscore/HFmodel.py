@@ -23,11 +23,14 @@ class HFmodel(LM):
 
         # Load model from HuggingFace
         self.model = AutoModelForCausalLM.from_pretrained(self.model_name).to("cuda")
+        
         # Load Tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-
         self.logger.debug(f"Loaded model name: {self.model.config._name_or_path}")
 
+        # setting pad token as end of sentence token
+        self.tokenizer.pad_token=self.tokenizer.eos_token
+        self.model.generation_config.pad_token_id = self.tokenizer.eos_token_id
 
         # Check for chat_template
         # Defining Chat_template
@@ -43,8 +46,8 @@ class HFmodel(LM):
             self.logits = False
         if len(self.true_id) == 2:
             self.logits = True
-            self.true_id = self.true_id[-1]
-            self.false_id = self.false_id[-1]
+            self.true_id = [self.true_id[-1]]
+            self.false_id = [self.false_id[-1]]
         else:
             self.logits = True
 
@@ -65,6 +68,7 @@ class HFmodel(LM):
             prompts = [prompts]
         if self.logits is False and self.mode == "afv":
             max_output_length = 3
+        force_id = [self.true_id, self.false_id] if self.logits else None
 
         if self.use_chat:
             prompts = self.chat_formatter(prompts)
@@ -84,7 +88,10 @@ class HFmodel(LM):
                 attention_mask=attention_mask,
                 max_new_tokens=max_output_length,
                 return_dict_in_generate=True,
-                output_scores=True
+                force_words_ids=force_id,
+                output_scores=True,
+                num_beams=2 if force_id else 1,  # Use beam search when force_words_ids is specified
+                do_sample=False if force_id else True, 
             )
             gen_tokens = gen_outputs["sequences"]
             # saving the logits for the very first token
