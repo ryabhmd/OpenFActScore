@@ -67,3 +67,5 @@ fs-venv
 poetry.lock
 
 acl-publication-info.74k.parquet
+
+**/results
