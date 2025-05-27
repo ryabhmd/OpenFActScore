@@ -34,6 +34,7 @@ class Llama3LM(LM):
         if cache_file:
             super().__init__(cache_file)
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.logits = False
 
     def load_model(self):
         if self.model_dir:
