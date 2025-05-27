@@ -17,11 +17,15 @@ from factscore.openai_lm import OpenAIModel
 from factscore.Llama3LM import Llama3LM
 from factscore.HFmodel import HFmodel
 
-nltk.download("punkt")
+
 
 
 class AtomicFactGenerator(object):
     def __init__(self, model_name, demon_dir, key_path="", af_cache_file=None):
+        try:
+            nltk.data.find("tokenizers/punkt_tab/")
+        except LookupError:
+            nltk.download("punkt_tab")
         self.nlp = spacy.load("en_core_web_sm")
         self.is_bio = True
         self.logger = logging.getLogger(self.__class__.__name__)
