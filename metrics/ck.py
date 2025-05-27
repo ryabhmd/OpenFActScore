@@ -39,7 +39,6 @@ class CKScore():
             for line in f:
                 i = json.loads(line)
                 if i['annotations'] is None:
-                    # print(i["topic"])
                     continue
                 for a in i['annotations']:
                     if not a['is-relevant']:
@@ -55,8 +54,7 @@ class CKScore():
         model_evals = []
         with open(self.path, 'r', encoding='utf-8') as jsl:
             model_evals = json.load(jsl)
-                
-        models = [atom for doc in model_evals["decisions"] for atom in doc] 
+        models = [atom for doc in model_evals["decisions"] for atom in doc]
         return models
 
     def get_cks(self):
@@ -67,18 +65,17 @@ class CKScore():
         y1 = [i["is_supported"] for i in self.machine_annotations]
         y2 = [i["label"] for i in self.human_annotations]
 
-        # TODO Values in list are bool
         assert all(isinstance(item, bool) for item in y1)
         assert all(isinstance(item, bool) for item in y2)
 
         ck_score = cohen_kappa_score(y1, y2)
         return ck_score
-    
+
     # TODO: Report
 
 if __name__ == "__main__":
     # Path to the machine annotations JSON file
-    path_to_machine_annotations = "../data/labeled/InstructGPT_factscore_output_human-atomic-facts copy.json"
+    path_to_machine_annotations = "/netscratch/fonseca/OpenFActScore/data/labeled/InstructGPT_fs_human-atomic-factsLlama-3.1-8B-Instruct.json"
 
     # Initialize CKScore object
     ck_score_calculator = CKScore(path_to_machine_annotations)
