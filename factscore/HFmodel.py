@@ -21,6 +21,7 @@ class HFmodel(LM):
             super().__init__(cache_file)
         self.logger = logging.getLogger(self.__class__.__name__)
 
+    def load_model(self):
         # Load model from HuggingFace
         self.model = AutoModelForCausalLM.from_pretrained(self.model_name).to("cuda")
         
@@ -50,6 +51,8 @@ class HFmodel(LM):
             self.false_id = [self.false_id[-1]]
         else:
             self.logits = True
+        # temporary logits override
+#        self.logits = False
 
 
     def unload_model(self):
@@ -91,7 +94,7 @@ class HFmodel(LM):
                 force_words_ids=force_id,
                 output_scores=True,
                 num_beams=2 if force_id else 1,  # Use beam search when force_words_ids is specified
-                do_sample=False if force_id else True, 
+                do_sample=False if force_id else True,
             )
             gen_tokens = gen_outputs["sequences"]
             # saving the logits for the very first token
