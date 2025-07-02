@@ -12,7 +12,8 @@ class HFmodel(LM):
     def __init__(self,
                  model_name,
                  cache_file=None,
-                 mode="afv"):
+                 mode="afv",
+                 logits = False):
         if mode not in {"afv","afg"}:
             raise ValueError(f"allowed modes are afg, afv. Not {mode}")
         self.mode = mode
@@ -20,8 +21,10 @@ class HFmodel(LM):
         if cache_file:
             super().__init__(cache_file)
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.logits = logits
 
     def load_model(self):
+        print("loading model")
         # Load model from HuggingFace
         self.model = AutoModelForCausalLM.from_pretrained(self.model_name).to("cuda")
         
@@ -39,28 +42,32 @@ class HFmodel(LM):
             self.use_chat = True
         else:
             self.use_chat = False
-            
-        # Is it possible to use logits
-        self.true_id = self.tokenizer.convert_tokens_to_ids(["True"])
-        self.false_id = self.tokenizer.convert_tokens_to_ids(["False"])
-        if len(self.true_id) > 2:
-            self.logits = False
-        if len(self.true_id) == 2:
-            self.logits = True
-            self.true_id = [self.true_id[-1]]
-            self.false_id = [self.false_id[-1]]
+
+        if self.mode=="afv" and self.logits:
+            # Is it possible to use logits
+            self.true_id = self.tokenizer.convert_tokens_to_ids(["True"])
+            self.false_id = self.tokenizer.convert_tokens_to_ids(["False"])
+            if len(self.true_id) > 2:
+                self.logits = False
+                print("Not possible to use logits")
+            if len(self.true_id) == 2:
+                self.logits = True
+                self.true_id = [self.true_id[-1]]
+                self.false_id = [self.false_id[-1]]
+            else:
+                self.logits = True
+            print(f"logits: {self.logits}")
         else:
-            self.logits = True
-        # temporary logits override
-#        self.logits = False
+            self.logits = False
+
 
 
     def unload_model(self):
         """
         Unloads the model and clears the memory.
         """
-        del self.model  # Delete the model object
-        torch.cuda.empty_cache()  # Free up GPU memory
+        self.model = None           # Delete the model object
+        torch.cuda.empty_cache()    # Free up GPU memory
         self.logger.debug("Model unloaded and GPU memory cleared.")
 
 
@@ -71,6 +78,7 @@ class HFmodel(LM):
             prompts = [prompts]
         if self.logits is False and self.mode == "afv":
             max_output_length = 3
+        # Force output to the ids for True or False
         force_id = [self.true_id, self.false_id] if self.logits else None
 
         if self.use_chat:
@@ -99,7 +107,7 @@ class HFmodel(LM):
             gen_tokens = gen_outputs["sequences"]
             # saving the logits for the very first token
             gen_scores = gen_outputs["scores"][0][0].detach().cpu().numpy()
-            gen = self.tokenizer.decode(gen_tokens[0, curr_input_ids.shape[-1]:])
+            gen = self.tokenizer.decode(gen_tokens[0, curr_input_ids.shape[-1]:], skip_special_tokens=True)
 
             if end_if_newline:
                 gen = gen.split("\n")[0].strip()
@@ -122,7 +130,7 @@ class HFmodel(LM):
 
     def chat_formatter(self, prompts:list):
         """
-        Apply the chat formatter and include system prompt for proper llama3.1 prompting
+        Apply the chat formatter and include system prompt
         Formatted_prompts: list
         """
         formatted_prompts = []
