@@ -1,8 +1,11 @@
 import sys
 import os
+import argparse
 import json
 import pandas as pd
 from bert_score import BERTScorer
+from pprint import pprint
+from tqdm import tqdm
 
 # data_path = "/netscratch/fonseca/HalluEval-RAG/data/atomic_facts/InstructGPT_llama_annotations.jsonl"
 # out_file = os.path.basename(data_path).replace(".jsonl","_bertscores.csv")
@@ -21,7 +24,7 @@ class AFGBertScores:
         out_file (str): Path to the CSV file storing the computed BERT scores.
         df (pd.DataFrame): DataFrame containing the computed scores.
     """
-    def __init__(self, data_path, out_folder="../results/metrics/afg_bert_score/"):
+    def __init__(self, data_path, mode, out_folder="../results/metrics/afg_bert_score/"):
         """
         Initializes the AFGBertScores class, creating necessary directories and 
         loading existing scores or computing new ones.
@@ -30,12 +33,17 @@ class AFGBertScores:
             data_path (str): Path to the input JSONL data file.
             out_folder (str, optional): Path to the output folder. Defaults to "../results/metrics/afg_bert_score/".
         """
+        self.df = None
+        self.compute_map = {
+            "original": self.get_scores_original_sentence,
+            "human_afs": self.get_score_against_human_afs,
+        }
+        self.mode = mode
         self.data_path = data_path
         self.out_folder = out_folder
         os.makedirs(out_folder, exist_ok=True)
 
         self.out_file = os.path.join(out_folder, os.path.basename(data_path).replace(".jsonl", "_afg_bert_score.csv"))
-        self.df = self.load_df()
 
     def load_df(self):
         """
@@ -47,10 +55,16 @@ class AFGBertScores:
         if os.path.exists(self.out_file):
             df = pd.read_csv(self.out_file)
             print(df.loc[:, 'f1-score'].mean())
-            return df
-        return self.get_scores()
+            self.df = df
+        else:
+            FileNotFoundError(f"File not found: {self.out_file}")
 
-    def get_scores(self):
+    def compute_scores(self):
+        assert self.mode in ['original',"human_afs"], "Mode not found"
+        method = self.compute_map.get(self.mode)
+        return method()
+
+    def get_scores_original_sentence(self):
         """
         Computes BERT scores for atomic facts against their corresponding reference sentences.
         
@@ -62,7 +76,7 @@ class AFGBertScores:
         doc_id, sentences, afs, precision, recall, f1 = [], [], [], [], [], []
 
         with open(self.data_path, "r", encoding="utf-8") as f:
-            for i, json_f in enumerate(f):
+            for i, json_f in tqdm(enumerate(f)):
                 data_dict = json.loads(json_f)
                 for annotation in data_dict['annotations']:
                     ref = annotation['text']
@@ -85,6 +99,55 @@ class AFGBertScores:
             "atomic_fact": afs,
             "precision": precision,
             "recall": recall,
+            "f1-score": f1
+        })
+
+        print(self.df.loc[:, 'f1-score'].mean())
+        return self.df
+
+    def get_score_against_human_afs(self):
+        """ For each model generated atomic fact, get highest BERTSCore between all 
+        human generated atomic fact in the same sentence.
+        """
+        scorer = BERTScorer(model_type='bert-base-uncased')
+        doc_id, sentences, list_mg_afs, max_human_af, f1 = [], [], [], [], []
+
+        with open(self.data_path, "r", encoding="utf-8") as f:
+            for i, json_f in tqdm(enumerate(f)):
+                data_dict = json.loads(json_f)
+                for annotation in data_dict['annotations']:
+                    assert "human-atomic-facts" in annotation, "Only possible to use with human-annotated-facts"
+                    ref = annotation['text']
+                    mg_afs = annotation["model-atomic-facts"]
+                    human_afs = annotation["human-atomic-facts"]
+                    if not human_afs:
+                        continue
+
+                    for mg_af in mg_afs:
+                        max_f1 = 0
+                        mg_text = mg_af["text"]
+                        try:
+                            for human_af in human_afs:
+                                human_txt = human_af["text"]
+                                _, _, F1 = scorer.score([mg_text], [human_txt])
+                                if F1 >= max_f1:
+                                    max_f1 = F1.item()
+                                    max_f1_text = human_txt
+                        except TypeError:
+                            pprint(annotation)
+                            continue
+
+                        doc_id.append(i)
+                        sentences.append(ref)
+                        list_mg_afs.append(mg_af)
+                        max_human_af.append(max_f1_text)
+                        f1.append(max_f1)
+
+        self.df = pd.DataFrame({
+            "doc": doc_id,
+            "sentence": sentences,
+            "mg_afs": list_mg_afs,
+            "max_human_afs": max_human_af,
             "f1-score": f1
         })
 
@@ -136,30 +199,18 @@ class AFGBertScores:
 
 if __name__=="__main__":
     os.chdir(os.path.dirname(__file__))
+    parser = argparse.ArgumentParser(description="Compute BERTScores for Atomic Facts")
+    parser.add_argument("--data_path", type=str, required=True, help="Path to the input .jsonl file")
+    parser.add_argument("--mode", type=str, choices=["original", "human_afs"], required=True,
+                        help="Comparison mode: 'original' (against original sentence) or 'human_afs' (against human-annotated AFS)")
+    parser.add_argument("--out_folder", type=str, default="../results/metrics/afg_bert_score/",
+                        help="Output folder to save CSV and report")
 
-    # Input data path
-    data_path = "/netscratch/fonseca/HalluEval-RAG/data/atomic_facts/InstructGPT_llama_annotations.jsonl"
-    data_path = "/netscratch/fonseca/OpenFActScore/results/metrics/afg_bert_score/InstructGPT_Llama-3.1-8B-Instruct-afs.jsonl"
-    # Output folder for results
-    # out_folder = "../results/metrics/afg_bert_scor
+    args = parser.parse_args()
 
-    # Initialize AFGBertScores object
-    bert_score_calculator = AFGBertScores(data_path)
+    scorer = AFGBertScores(data_path=args.data_path, mode=args.mode, out_folder=args.out_folder)
 
-    # Calculate and display mean F1 score
-    print("Calculating BERT scores and displaying mean F1 score...")
-    print(f"Mean F1 Score: {bert_score_calculator.df.loc[:,'f1-score'].mean()}")
+    scorer.compute_scores()
+    scorer.to_csv()
+    scorer.get_report()
 
-    # Display top 5 and bottom 5 results
-    print("\nTop 5 Results:")
-    print(bert_score_calculator.get_top5().head(5))
-
-    print("\nBottom 5 Results:")
-    print(bert_score_calculator.get_low5().head(5))
-
-    # Save results to CSV file
-    bert_score_calculator.to_csv()
-    print(f"\nResults saved to: {bert_score_calculator.out_file}")
-    
-    # Save report
-    bert_score_calculator.get_report()
