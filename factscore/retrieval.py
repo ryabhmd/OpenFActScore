@@ -101,6 +101,7 @@ class DocDB(object):
 
     def get_text_from_title(self, title):
         """Fetch the raw text of the doc for 'doc_id'."""
+        self.logger.debug("getting text from title `topic` = %s in the DB.", title)
         cursor = self.connection.cursor()
         cursor.execute("SELECT text FROM documents WHERE title = ?", (title,))
         results = cursor.fetchall()
@@ -209,6 +210,10 @@ class Retrieval(object):
         
         if cache_key not in self.cache:
             passages = self.db.get_text_from_title(topic)
+            if not passages:
+                self.logger.debug(f"No Passages for {topic}  | {question}")
+                return None
+
             if self.retrieval_type=="bm25":
                 self.cache[cache_key] = self.get_bm25_passages(topic, retrieval_query, passages, k)
             else:
