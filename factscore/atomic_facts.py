@@ -155,6 +155,7 @@ class AtomicFactGenerator(object):
             for prompt in prompts:
                 output, _ = self.lm.generate(prompt)
                 output = output.replace("<|eot_id|>", "")
+                output = re.sub(r'-\s*\n', '', output)
                 atoms[prompt_to_sent[prompt]] = text_to_sentences(output)
 
             for key, value in demons.items():
@@ -172,13 +173,17 @@ def best_demos(query, bm25, demons_sents, k):
 
 # transform InstructGPT output into sentences
 def text_to_sentences(text):
-    sentences = text.split("- ")[1:]
-    sentences = [sent.strip()[:-1] if sent.strip()[-1] == '\n' else sent.strip() for sent in sentences]
-    if len(sentences) > 0: 
-        if sentences[-1][-1] != '.':
-            sentences[-1] = sentences[-1] + '.' 
-    else:
-        sentences = []
+    try:
+        sentences = text.split("- ")[1:]
+        sentences = [sent.strip()[:-1] if sent.strip()[-1] == '\n' else sent.strip() for sent in sentences]
+        if len(sentences) > 0: 
+            if sentences[-1][-1] != '.':
+                sentences[-1] = sentences[-1] + '.'
+        else:
+            sentences = []
+    except IndexError:
+        print("text: %s", text)
+        print("sentences: %s",sentences)
     return sentences
 
 
