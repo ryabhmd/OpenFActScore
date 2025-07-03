@@ -306,7 +306,6 @@ class FactScorer(object):
                 is_supported = npprob > 0.3
 
             decisions.append({"atom": atom, "is_supported": is_supported})
-        self.model.unload_model()
         if cost_estimate:
             return total_words
         else:
