@@ -7,8 +7,10 @@ authors = [
 ]
 license = { text = "MIT" }
 readme = "README.md"
+
+requires-python = ">=3.9"
+
 dependencies = [
-    "python>=3.9",
     "torch>=2.7",
     "sentence-transformers>=2.2.2",
     "transformers>=4.50",
