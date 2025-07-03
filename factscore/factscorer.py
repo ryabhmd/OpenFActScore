@@ -20,7 +20,8 @@ class FactScorer(object):
                  afv_model="meta-llama/Llama-3.1-8B-Instruct",
                  afg_model="meta-llama/Llama-3.1-8B-Instruct",
                  is_npm=True,
-                 is_retrieval=True,
+                 is_logits=False,
+                 #is_retrieval=True,
                  data_dir=".cache/factscore",
                  model_dir=".cache/factscore",
                  cache_dir=".cache/factscore",
@@ -31,9 +32,6 @@ class FactScorer(object):
         self.afg_model = afg_model
         self.afv_model = afv_model
         self.is_npm = is_npm
-        self.is_retrieval = is_retrieval
-#        assert model_name in ["retrieval+inst-llama", "retrieval+inst-llama+npm", "retrieval+ChatGPT",
-#                "npm", "retrieval+ChatGPT+npm", "retrieval+llama31+npm","retrieval+llama31" ]
         self.model_name = self.generate_config_name()
         self.logger = logging.getLogger(self.__class__.__name__)
         self.db = {}
@@ -72,8 +70,7 @@ class FactScorer(object):
         model_name = [afg_name, afv_name]
         if self.is_npm:
             model_name.append("npm")
-        if self.is_retrieval:
-            model_name.insert(0,"retrieval")
+        model_name.insert(0,"retrieval")
         model_name = "+".join(model_name)
         return model_name
 
@@ -215,6 +212,9 @@ class FactScorer(object):
                 decisions.append(None)
             else:
                 decision = self._get_score(topic, generation, facts, knowledge_source)
+                if decision is None:
+                    decisions.append(None)
+                    continue
                 # Score is the average number of "is_supported" for generation
                 score = np.mean([d["is_supported"] for d in decision])
                 
@@ -238,17 +238,22 @@ class FactScorer(object):
 
         if gamma:
             out["init_score"] = np.mean(init_scores)
+        self.lm.unload_model()
         
         return out
 
     def _get_score(self, topic, generation, atomic_facts, knowledge_source, cost_estimate=None):
         decisions = []
         total_words = 0
+
         # Prompt Construction
         for atom in atomic_facts:
             atom = atom.strip()
             if self.lm:
+                self.logger.debug("Retrieving passages from %s", knowledge_source)
                 passages = self.retrieval[knowledge_source].get_passages(topic, atom, k=5)
+                if not passages:
+                    return None
                 definition = "Answer the question about {} based on the given context.\n\n".format(topic)
                 context = ""
                 for psg_idx, psg in enumerate(reversed(passages)):
@@ -301,8 +306,7 @@ class FactScorer(object):
                 is_supported = npprob > 0.3
 
             decisions.append({"atom": atom, "is_supported": is_supported})
-            # TODO: salvar as decisões do modelo
-
+        self.model.unload_model()
         if cost_estimate:
             return total_words
         else:
@@ -324,14 +328,12 @@ if __name__ == '__main__':
                         help="Path to the input JSONL file containing topics and generations.")
 
     # Model configuration arguments
-    parser.add_argument('--afv_model', type=str, default="Llama-3.1-8B-Instruct",
+    parser.add_argument('--afv_model', type=str, default="meta-llama/Llama-3.1-8B-Instruct",
                         help="Name of the Atomic Fact Verification model.")
-    parser.add_argument('--afg_model', type=str, default="Llama-3.1-8B-Instruct",
+    parser.add_argument('--afg_model', type=str, default="meta-llama/Llama-3.1-8B-Instruct",
                         help="Name of the Atomic Fact Generation model.")
-    parser.add_argument('--is_npm', action='store_false',
-                        help="Flag to enable Neural Probabilistic Model (NPM).")
-    parser.add_argument('--is_retrieval', action='store_false',
-                        help="Flag to enable retrieval-based scoring.")
+    parser.add_argument('--is_npm', action='store_true',
+                        help="Flag to enable Non Parametric Model (NPM).")
 
     # Directories and paths
     parser.add_argument('--data_dir', type=str, default=".cache/factscore",
@@ -366,6 +368,9 @@ if __name__ == '__main__':
                         help="Limit the number of samples to process.")
     parser.add_argument('--debug_logger', action='store_true',
                         help="Set logger level to debug")
+    parser.add_argument("--af_annotator", type=str, default="human-atomic-facts",
+                        help="Annotator type (e.g., model-atomic-facts, human-atomic-facts)")
+
 
     args = parser.parse_args()
 
@@ -375,12 +380,12 @@ if __name__ == '__main__':
                         level=logging.DEBUG if args.debug_logger else logging.CRITICAL)
 
     logger = logging.getLogger(__name__)
+    logger.debug("Started logger: Calling FactScorer")
     # Initialize FactScorer with parsed arguments
     fs = FactScorer(
         afv_model=args.afv_model,
         afg_model=args.afg_model,
         is_npm=args.is_npm,
-        is_retrieval=args.is_retrieval,
         data_dir=args.data_dir,
         model_dir=args.model_dir,
         cache_dir=args.cache_dir,
@@ -403,15 +408,23 @@ if __name__ == '__main__':
                     continue
                 topics.append(dp["topic"])
                 generations.append(dp["output"])
-                atomic_facts.append([
-                    atom["text"] for sent in dp["annotations"] for atom in sent["llama-atomic-facts"]
-                ])
+                atomic_facts.append(
+                    [atom["text"] for sent in dp["annotations"] if sent[args.af_annotator] for atom in sent[args.af_annotator]]
+                )
             else:
                 topics.append(dp["topic"])
                 generations.append(dp["output"])
             if args.n_samples is not None and tot == args.n_samples:
                 break
-
+    if atomic_facts:
+        filtered_data = [
+            (l1, l2, lol)
+            for l1, l2, lol in zip(topics, generations, atomic_facts)
+            if lol
+        ]
+        topics, generations, atomic_facts = zip(*filtered_data)
+        # Convert tuples back to lists if needed
+        topics, generations, atomic_facts = list(topics), list(generations), list(atomic_facts)
     logger.debug("Preparing to get scores")
     # Compute scores
     results = fs.get_score(
@@ -431,8 +444,19 @@ if __name__ == '__main__':
     logging.critical("# Atomic facts per valid response = %.1f", results["num_facts_per_response"])
 
     # Save results to output file
-    output_path = args.input_path.replace(".jsonl", "_factscore_output.json")
-    with open(output_path, 'w', encoding='utf8') as f:
-        f.write(json.dumps(results, default=convert_to_serializable, indent=4) + "\n")
+    out_path = args.input_path.replace(".jsonl", f"_fs_{args.af_annotator}{args.afv_model.split('/')[-1]}.json")
+    with open (out_path, 'w') as f:
+        f.write(json.dumps(results, default=convert_to_serializable) + "\n")
+    print(f"Saved to: {out_path}")
 
-    print(f"Results saved to {output_path}")
+    # if args.use_atomic_facts and args.af_annotator == "human-atomic-facts":
+    #     # Get CK agreement
+    #     ck_scorer = CKScore(out_path)
+    #     out["cohen_kappa"] = ck_scorer.get_cks()
+
+    #     logger.critical("Cohen's kappa: %.2f" % out["cohen_kappa"])
+    #     logger.critical("Saved to: %s", out_path)
+    #     print(f"Saved CK Score to: {out_path}")
+
+    #     with open (out_path, 'w') as f:
+    #         f.write(json.dumps(results, default=convert_to_serializable) + "\n")
