@@ -1,6 +1,7 @@
 import logging
 import json
 import torch
+import gc
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
@@ -67,6 +68,7 @@ class HFmodel(LM):
         Unloads the model and clears the memory.
         """
         self.model = None           # Delete the model object
+        gc.collect()
         torch.cuda.empty_cache()    # Free up GPU memory
         self.logger.debug("Model unloaded and GPU memory cleared.")
 
