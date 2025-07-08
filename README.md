@@ -85,32 +85,33 @@ print (out["respond_ratio"]) # % of responding (not abstaining from answering)
 print (out["num_facts_per_response"]) # average number of atomic facts per response
 ```
 
-Alternatively, you can create a .jsonl file, where each line has `topic` (entity name, exactly same as the one from `.txt` file) and `output` (generation from LM), and then use a command line [above](#Running-FActScore-using-a-command-line).
+Alternatively, you can create a .jsonl file, where each line has `topic` (entity name, exactly same as the one from `.txt` file) and `output` (generation from LM), and then use a command line [above](##Running-FActScore).
 
 
-Scores for the original FActScore implementation can be seen in columns (A) `FactScorer(model_name="retrieval+ChatGPT")` and (B) `FactScorer(model_name="retrieval+llama+npm")`. 
+Scores for the original FActScore implementation can be seen in columns (A) `AFG=InstructGPT, AFV=chatGPT` and (B) `AFG=InstructGPT, AFV=llama+npm`. 
 They have 0.99 Pearson correlation. 
-Our favoured setting results can be seen 
-Here're results of a range of models, which you can easily reproduce through [these command lines](#Running-FActScore-using-a-command-line).
+Instructions on reproducing cores for (A) and (B) can be found in [FActScore](https://github.com/shmsw25/FActScore).
+We report FActScore obtained by `AFG=allenai/OLMo-2-1124-7B-SFT, AFV=allenai/OLMo-2-1124-7B-SFT` for the following 10 unnanotated data for LLMs prompted in the Biography Writing task.
+We report a pearson correlation of over 0.99 between our setting and both (A) and (B)
 
-| Model | % respond | # facts | FActScore from (A) | FActScore from (B) |
-|---|---|---|---|---|
-| [GPT-4](https://arxiv.org/abs/2303.08774)                                         | 88.2 | 60.8 | 73.1 | 59.9 |
-| [ChatGPT](https://openai.com/blog/chatgpt)                                        | 84.2 | 37.0 | 71.6 | 60.4 |
-| [Alpaca 65B](https://crfm.stanford.edu/2023/03/13/alpaca.html)                    | 100.0 | 17.1 | 55.6 | 46.3 |
-| [InstructGPT](https://openai.com/research/instruction-following)                  | 99.8 | 27.7 | 52.8 | 41.7 |
-| [Alpaca 13B](https://crfm.stanford.edu/2023/03/13/alpaca.html)                    | 100.0 | 16.6 | 47.7 | 40.3 |
-| [Vicuna 13B](https://lmsys.org/blog/2023-03-30-vicuna/)                           | 76.6 | 50.9 | 46.6 | 40.7 |
-| [Alpaca 7B](https://crfm.stanford.edu/2023/03/13/alpaca.html)                     | 100.0 | 17.4 | 39.7 | 36.5 |
-| [Vicuna 7B](https://lmsys.org/blog/2023-03-30-vicuna/)                            | 91.0 | 45.6 | 38.9 | 36.9 |
-| [MPT Chat 7B](https://www.mosaicml.com/blog/mpt-7b)                               | 88.8 | 37.3 | 30.1 | 27.9 |
-| [Oasst Pythia 12B](https://huggingface.co/OpenAssistant/oasst-sft-1-pythia-12b)   | 100.0 | 39.7 | 25.1 | 20.8 |
-| [Dolly 12B](https://huggingface.co/databricks/dolly-v2-12b)                       | 100.0 | 24.6 | 21.7 | 17.1 |
-| [StableLM tuned 7B](https://huggingface.co/stabilityai/stablelm-tuned-alpha-7b)   | 66.6 | 38.0 | 17.3 | 16.3 |
+| Model | % respond | # facts | FActScore from (A) | FActScore from (B) | FActScore from OFS |
+|---|---|---|---|---| --- |
+| [GPT-4](https://arxiv.org/abs/2303.08774)                                         | 88.2 | 60.8 | 73.1 | 59.9 | 50.1 |
+| [ChatGPT](https://openai.com/blog/chatgpt)                                        | 84.2 | 37.0 | 71.6 | 60.4 | 46.5 |
+| [Alpaca 65B](https://crfm.stanford.edu/2023/03/13/alpaca.html)                    | 100.0 | 17.1 | 55.6 | 46.3 | 37.1 |
+| [InstructGPT](https://openai.com/research/instruction-following)                  | 99.8 | 27.7 | 52.8 | 41.7 | 35.9 |
+| [Alpaca 13B](https://crfm.stanford.edu/2023/03/13/alpaca.html)                    | 100.0 | 16.6 | 47.7 | 40.3 | 30.0 |
+| [Vicuna 7B](https://lmsys.org/blog/2023-03-30-vicuna/)                            | 91.0 | 45.6 | 38.9 | 36.9 | 29.1|
+| [MPT Chat 7B](https://www.mosaicml.com/blog/mpt-7b)                               | 88.8 | 37.3 | 30.1 | 27.9 | 20.7|
+| [Oasst Pythia 12B](https://huggingface.co/OpenAssistant/oasst-sft-1-pythia-12b)   | 100.0 | 39.7 | 25.1 | 20.8 | 16.23 |
+| [Dolly 12B](https://huggingface.co/databricks/dolly-v2-12b)                       | 100.0 | 24.6 | 21.7 | 17.1 | 13.5 |
+| [StableLM tuned 7B](https://huggingface.co/stabilityai/stablelm-tuned-alpha-7b)   | 66.6 | 38.0 | 17.3 | 16.3 | 9.2 |
 
 `% respond` (% of responding instead of abstaining from answering) and `# facts` (# of atomic facts per valid response) indicate "factual recall" (how many pieces of information the model gives) and FActScore indicates "factual precision" (how accurate each piece of information the model gives is).
 
 ## Using Gemma
+
+To use [Gemma-3-4b](https://huggingface.co/google/gemma-3-4b-it) we recommend disabling TorchDynamo as we encountered unstable behaviour when running inference on multiple atomic facts.
 
 ```
 export TORCHDYNAMO_DISABLE=1
