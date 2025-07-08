@@ -14,7 +14,8 @@ class HFmodel(LM):
                  model_name,
                  cache_file=None,
                  mode="afv",
-                 logits = False):
+                 logits=False,
+                 use_chat=True):
         if mode not in {"afv","afg"}:
             raise ValueError(f"allowed modes are afg, afv. Not {mode}")
         self.mode = mode
@@ -23,6 +24,7 @@ class HFmodel(LM):
             super().__init__(cache_file)
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logits = logits
+        self.use_chat= use_chat
 
     def load_model(self):
         print("loading model")
@@ -39,7 +41,7 @@ class HFmodel(LM):
 
         # Check for chat_template
         # Defining Chat_template
-        if "chat_template" in self.tokenizer.init_kwargs:
+        if "chat_template" in self.tokenizer.init_kwargs and self.use_chat:
             self.use_chat = True
         else:
             self.use_chat = False
@@ -57,7 +59,6 @@ class HFmodel(LM):
                 self.false_id = [self.false_id[-1]]
             else:
                 self.logits = True
-            print(f"logits: {self.logits}")
         else:
             self.logits = False
 

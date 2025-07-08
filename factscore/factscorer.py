@@ -40,6 +40,7 @@ class FactScorer(object):
         self.batch_size = batch_size # batch size for retrieval
         self.openai_key = openai_key
         self.abstain_detection_type = abstain_detection_type
+        self.is_logits = is_logits
 
         self.data_dir = data_dir
         self.cache_dir = cache_dir
@@ -61,7 +62,8 @@ class FactScorer(object):
                                 cache_file=os.path.join(cache_dir, self.model_name))
         else:
             self.lm = HFmodel(self.afv_model,
-                                cache_file=os.path.join(cache_dir, self.model_name))
+                                cache_file=os.path.join(cache_dir, self.model_name),
+                                logits=self.is_logits)
         self.logger.debug("%s",self.model_name)
 
     def generate_config_name(self):
