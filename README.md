@@ -110,3 +110,10 @@ Here're results of a range of models, which you can easily reproduce through [th
 
 `% respond` (% of responding instead of abstaining from answering) and `# facts` (# of atomic facts per valid response) indicate "factual recall" (how many pieces of information the model gives) and FActScore indicates "factual precision" (how accurate each piece of information the model gives is).
 
+## Using Gemma
+
+```
+export TORCHDYNAMO_DISABLE=1
+export TORCH_COMPILE_DISABLE=1
+export TRANSFORMERS_NO_TORCH_COMPILE=1
+```
