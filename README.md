@@ -91,7 +91,7 @@ Alternatively, you can create a .jsonl file, where each line has `topic` (entity
 Scores for the original FActScore implementation can be seen in columns (A) `AFG=InstructGPT, AFV=chatGPT` and (B) `AFG=InstructGPT, AFV=llama+npm`. 
 They have 0.99 Pearson correlation. 
 Instructions on reproducing cores for (A) and (B) can be found in [FActScore](https://github.com/shmsw25/FActScore).
-We report FActScore obtained by `AFG=allenai/OLMo-2-1124-7B-SFT, AFV=allenai/OLMo-2-1124-7B-SFT` for the following 10 unnanotated data for LLMs prompted in the Biography Writing task.
+We report FActScore obtained by `AFG=allenai/OLMo-2-1124-7B-SFT, AFV=google/gemma-3-4b-it` for the following 10 unnanotated data for LLMs prompted in the Biography Writing task.
 We report a pearson correlation of over 0.99 between our setting and both (A) and (B)
 
 | Model | % respond | # facts | FActScore from (A) | FActScore from (B) | FActScore from OFS |
@@ -117,4 +117,20 @@ To use [Gemma-3-4b](https://huggingface.co/google/gemma-3-4b-it) we recommend di
 export TORCHDYNAMO_DISABLE=1
 export TORCH_COMPILE_DISABLE=1
 export TRANSFORMERS_NO_TORCH_COMPILE=1
+```
+
+# Citing
+
+If using our package please cite:
+
+```
+@misc{lage2025openfactscoreopensourceatomicevaluation,
+      title={OpenFActScore: Open-Source Atomic Evaluation of Factuality in Text Generation}, 
+      author={Lucas Fonseca Lage and Simon Ostermann},
+      year={2025},
+      eprint={2507.05965},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2507.05965}, 
+}
 ```
