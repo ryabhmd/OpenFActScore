@@ -322,11 +322,6 @@ def convert_to_serializable(obj):
 
 if __name__ == '__main__':
 
-    # test knwoledge source generation
-    knwoledge_source_path = "/netscratch/abu/knowledge_source_dict.jsonl"
-    knwoledge_source_name = "custom"
-    register_knowledge_source(name=knwoledge_source_name, data_path=knwoledge_source_path)
-
     parser = argparse.ArgumentParser(description="Compute FactScore for generated outputs.")
 
     # Required arguments
@@ -399,6 +394,11 @@ if __name__ == '__main__':
         cost_estimate=args.cost_estimate,
         abstain_detection_type=args.abstain_detection_type
     )
+
+    # test knwoledge source generation
+    knwoledge_source_path = "/netscratch/abu/knowledge_source_dict.jsonl"
+    knwoledge_source_name = "custom"
+    fs.register_knowledge_source(name=knwoledge_source_name, data_path=knwoledge_source_path)
 
     topics, generations, atomic_facts = [], [], []
     tot = 0
