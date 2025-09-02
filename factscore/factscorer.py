@@ -322,6 +322,11 @@ def convert_to_serializable(obj):
 
 if __name__ == '__main__':
 
+    # test knwoledge source generation
+    knwoledge_source_path = "/netscratch/abu/knowledge_source_dict.jsonl"
+    knwoledge_source_name = "custom"
+    register_knowledge_source(name=knwoledge_source_name, data_path=knwoledge_source_path)
+
     parser = argparse.ArgumentParser(description="Compute FactScore for generated outputs.")
 
     # Required arguments
