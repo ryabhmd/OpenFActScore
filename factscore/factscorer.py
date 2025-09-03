@@ -214,7 +214,7 @@ class FactScorer(object):
         init_scores = []
         decisions = []
         # 
-        for topic, generation, facts in zip(topics, generations, atomic_facts[0]):
+        for topic, generation, facts in zip(topics, generations, atomic_facts):
             print(f"Topic: {topic}.")
             print(f"Generation: {generation}.")
             print(f"Facts: {facts}.")
@@ -222,11 +222,14 @@ class FactScorer(object):
                 decisions.append(None)
             else:
                 decision = self._get_score(topic, generation, facts, knowledge_source)
+                print(f"Knowledge source: {knowledge_source}.")
+                print(f"Decision: {decision}.")
                 if decision is None:
                     decisions.append(None)
                     continue
                 # Score is the average number of "is_supported" for generation
                 score = np.mean([d["is_supported"] for d in decision])
+                print(f"Score: {score}.")
                 
                 if gamma:
                     init_scores.append(score)
