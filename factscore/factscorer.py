@@ -215,6 +215,9 @@ class FactScorer(object):
         decisions = []
         # 
         for topic, generation, facts in zip(topics, generations, atomic_facts[0]):
+            print(f"Topic: {topic}.")
+            print(f"Generation: {generation}.")
+            print(f"Facts: {facts}.")
             if facts is None:
                 decisions.append(None)
             else:
