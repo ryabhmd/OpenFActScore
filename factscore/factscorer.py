@@ -396,7 +396,7 @@ if __name__ == '__main__':
     )
 
     # test knwoledge source generation
-    knwoledge_source_path = "/netscratch/abu/knowledge_source_dict.jsonl"
+    knwoledge_source_path = "/netscratch/abu/knowledge_source_dict_updated.jsonl"
     knwoledge_source_name = "custom"
     fs.register_knowledge_source(name=knwoledge_source_name, data_path=knwoledge_source_path)
 
