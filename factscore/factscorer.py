@@ -139,6 +139,7 @@ class FactScorer(object):
 
         if knowledge_source not in self.retrieval:
             self.register_knowledge_source(knowledge_source)
+            print(f"Registered knowledge source: {knowledge_source}.")
 
         if type(topics)==type(generations)==str:
             topics = [topics]
@@ -153,6 +154,7 @@ class FactScorer(object):
             assert len(topics)==len(atomic_facts), "`topics` and `atomic_facts` should have the same length"
         else: #Atomic FactGeneration
             if self.af_generator is None:
+                print("Generating atomic facts.")
                 self.af_generator = AtomicFactGenerator(model_name=self.afg_model,
                                                         demon_dir=os.path.join(self.data_dir, "demos"),
                                                         key_path=self.openai_key,
@@ -178,6 +180,7 @@ class FactScorer(object):
                     atomic_facts.append(None)
                     continue
                 # continue only when the response is not abstained
+                print("Response is not abstained.")
                 curr_afs, _ = self.af_generator.run(gen)
                 curr_afs = [fact for _, facts in curr_afs for fact in facts]
                 if len(curr_afs)==0:
@@ -187,6 +190,7 @@ class FactScorer(object):
                 if len(atomic_facts) % 10 == 0:
                     self.af_generator.save_cache()
 
+            print(f"Generated atomic facts: {atomic_facts}.")
             assert len(atomic_facts)==len(topics)
             self.af_generator.save_cache()
             self.af_generator.lm.unload_model()
