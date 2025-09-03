@@ -195,7 +195,7 @@ class FactScorer(object):
             self.af_generator.save_cache()
             self.af_generator.lm.unload_model()
 
-        respond_ratio = np.mean([facts is not None for facts in atomic_facts[0])
+        respond_ratio = np.mean([facts is not None for facts in atomic_facts[0]])
         print(f"Respond ratio is: {respond_ratio}.")
 
         if "ChatGPT" in self.model_name:
