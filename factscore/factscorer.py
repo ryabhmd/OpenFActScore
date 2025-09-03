@@ -262,8 +262,10 @@ class FactScorer(object):
         # Prompt Construction
         for atom in atomic_facts:
             atom = atom.strip()
+            print(f"Atom: {atom}.")
             if self.lm:
                 self.logger.debug("Retrieving passages from %s", knowledge_source)
+                print("Retrieving passages from %s", knowledge_source)
                 passages = self.retrieval[knowledge_source].get_passages(topic, atom, k=5)
                 if not passages:
                     return None
