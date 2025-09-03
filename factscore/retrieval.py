@@ -97,7 +97,7 @@ class DocDB(object):
             print ("Finish saving %dM documents (%dmin)" % (tot / 1000000, (time.time()-start_time)/60))
 
         self.connection.commit()
-        self.connection.close()
+        #self.connection.close()
 
     def get_text_from_title(self, title):
         """Fetch the raw text of the doc for 'doc_id'."""
