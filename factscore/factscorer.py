@@ -400,11 +400,14 @@ if __name__ == '__main__':
     knwoledge_source_name = "sdl_survey"
     fs.register_knowledge_source(name=knwoledge_source_name, data_path=knwoledge_source_path)
 
+    print(f"Registered knwoledge source {knwoledge_source_name}.")
+
     topics, generations, atomic_facts = [], [], []
     tot = 0
     logger.critical("Initialized FactScore")
     # Read input file
     with open(args.input_path, 'r', encoding='utf8') as f:
+        print(f"Reading {args.input_path}.")
         for line in f:
             dp = json.loads(line)
             tot += 1
@@ -420,6 +423,7 @@ if __name__ == '__main__':
             else:
                 topics.append(dp["topic"])
                 generations.append(dp["output"])
+                print(f"Extracted topic: {topics}")
             if args.n_samples is not None and tot == args.n_samples:
                 break
     if atomic_facts:
@@ -433,6 +437,7 @@ if __name__ == '__main__':
         topics, generations, atomic_facts = list(topics), list(generations), list(atomic_facts)
     logger.debug("Preparing to get scores")
     # Compute scores
+    print("Starting to compute score")
     results = fs.get_score(
         topics=topics,
         generations=generations,
