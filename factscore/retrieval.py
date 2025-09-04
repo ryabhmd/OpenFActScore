@@ -120,7 +120,7 @@ class DocDB(object):
         """
         return results
         
-    def get_text_from_db(self, title):
+    def get_text_from_db(self):
         """
         **New function (Raia)**
         Fetch all text from the given DB
@@ -234,7 +234,8 @@ class Retrieval(object):
         
         if cache_key not in self.cache:
             print("Getting passages...")
-            passages = self.db.get_text_from_title(topic)
+            passages = self.db.get_text_from_db()
+            print("Got passages...")
             if not passages:
                 self.logger.debug(f"No Passages for {topic}  | {question}")
                 return None
