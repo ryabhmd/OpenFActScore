@@ -205,8 +205,11 @@ class Retrieval(object):
 
     def get_passages(self, topic, question, k):
         self.logger.debug(f"retrieving passages with {self.retrieval_type}")
+        print(f"retrieving passages with {self.retrieval_type}")
         retrieval_query = topic + " " + question.strip()
+        print(f"Retrieval query: {retrieval_query}")
         cache_key = topic + "#" + retrieval_query
+        print(f"Cache key: {cache_key}")
         
         if cache_key not in self.cache:
             passages = self.db.get_text_from_title(topic)
