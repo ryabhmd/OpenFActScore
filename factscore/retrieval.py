@@ -119,6 +119,22 @@ class DocDB(object):
             self.logger.debug("nr of not found docs %s", self.not_found)
         """
         return results
+        
+    def get_text_from_db(self, title):
+        """
+        **New function (Raia)**
+        Fetch all text from the given DB
+        """
+        """Fetch the raw text of the doc for 'doc_id'."""
+        self.logger.debug("getting text from DB.")
+        print(f"getting text for {title} in DB")
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT text FROM documents")
+        results = cursor.fetchall()
+        results = [r for r in results]
+        print(f"Results: {results}")
+        cursor.close()
+        return results
 
 class Retrieval(object):
 
