@@ -279,7 +279,7 @@ class FactScorer(object):
                 definition = "Answer the question about {} based on the given context.\n\n".format(topic)
                 context = ""
                 for psg_idx, psg in enumerate(reversed(passages)):
-                    context += "Title: {}\nText: {}\n\n".format(psg["title"], psg["text"].replace("<s>", "").replace("</s>", ""))
+                    context += "Text: {}\n\n".format(psg[0].replace("<s>", "").replace("</s>", ""))
                 definition += context.strip()
                 if definition[-1] not in string.punctuation:
                     definition += "."
