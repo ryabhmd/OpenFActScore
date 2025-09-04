@@ -108,6 +108,7 @@ class DocDB(object):
         results = cursor.fetchall()
         results = [r for r in results]
         cursor.close()
+        """ Removes these assertions; the original code assumes that there is a topic that matches title in the DB which is not the case for me.
         try:
             assert results is not None and len(results)==1, f"`topic` in your data ({title}) is likely to be not a valid title in the DB."
             results = [{"title": title, "text": para} for para in results[0][0].split(SPECIAL_SEPARATOR)]
@@ -116,6 +117,7 @@ class DocDB(object):
             self.logger.debug("`topic` in your data (%s) is likely to be not a valid title in the DB.", title)
             self.not_found += 1
             self.logger.debug("nr of not found docs %s", self.not_found)
+        """
         return results
 
 class Retrieval(object):
