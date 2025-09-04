@@ -154,8 +154,7 @@ class HFmodel(LM):
                 system_instruct = f"{_instruct}\n{parts[0]}"
                 prompt = parts[1]
 
-            instruct_dict = [{"role" : "assistant", "content": system_instruct},
-                             {"role": "user", "content": prompt}]
+            instruct_dict = [{"role": "user", "content": prompt}]
 
             cur_prompt = self.tokenizer.apply_chat_template(instruct_dict, tokenize=False, add_generation_prompt=True)
             formatted_prompts.append(cur_prompt)
