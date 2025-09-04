@@ -232,6 +232,7 @@ class Retrieval(object):
         if topic in self.embed_cache:
             passage_vectors = self.embed_cache[topic]
         else:
+            print(f"First passage: {passages[0]}")
             inputs = [psg.replace("<s>", "").replace("</s>", "") for psg in passages]
             passage_vectors = self.encoder.encode(inputs, batch_size=self.batch_size, device=self.encoder.device)
             self.embed_cache[topic] = passage_vectors
