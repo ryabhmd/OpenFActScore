@@ -284,6 +284,7 @@ class FactScorer(object):
                 if definition[-1] not in string.punctuation:
                     definition += "."
                 prompt = "{}\n\nInput: {} True or False?\nAnswer:".format(definition.strip(), atom.strip())
+                print(f"Prompt: {prompt}")
 
                 if cost_estimate:
                     if cost_estimate == "consider_cache" and (prompt.strip() + "_0") not in self.lm.cache_dict:
