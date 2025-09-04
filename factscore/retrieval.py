@@ -102,8 +102,9 @@ class DocDB(object):
     def get_text_from_title(self, title):
         """Fetch the raw text of the doc for 'doc_id'."""
         self.logger.debug("getting text from title `topic` = %s in the DB.", title)
+        print(f"getting text for {title} in DB")
         cursor = self.connection.cursor()
-        cursor.execute("SELECT text FROM documents WHERE title = ?", (title,))
+        cursor.execute("SELECT text FROM documents")
         results = cursor.fetchall()
         results = [r for r in results]
         cursor.close()
