@@ -127,7 +127,7 @@ class DocDB(object):
         """
         """Fetch the raw text of the doc for 'doc_id'."""
         self.logger.debug("getting text from DB.")
-        print(f"getting text for {title} in DB")
+        print("Connecting to DB...")
         cursor = self.connection.cursor()
         cursor.execute("SELECT text FROM documents")
         results = cursor.fetchall()
@@ -229,7 +229,6 @@ class Retrieval(object):
         print(f"Retrieval query: {retrieval_query}")
         cache_key = topic + "#" + retrieval_query
         print(f"Cache key: {cache_key}")
-
         print(f"self.cache: {self.cache}")
         
         if cache_key not in self.cache:
