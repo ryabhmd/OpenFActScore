@@ -263,7 +263,7 @@ class Retrieval(object):
             if self.retrieval_type=="bm25":
                 self.cache[cache_key] = self.get_bm25_passages(topic, retrieval_query, passages, k)
             else:
-                self.cache[cache_key] = self.get_gtr_passages(topic, retrieval_query, passages, k)
+                self.cache[cache_key] = self.get_gtr_passages_updated(topic, retrieval_query, passages, k)
             assert len(self.cache[cache_key]) in [k, len(passages)]
             self.add_n += 1
         
