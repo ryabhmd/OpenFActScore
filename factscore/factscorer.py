@@ -258,6 +258,11 @@ class FactScorer(object):
     def _get_score(self, topic, generation, atomic_facts, knowledge_source, cost_estimate=None):
         decisions = []
         total_words = 0
+        print("_get_score function")
+        print(f"Topic: {topic}")
+        print(f"Knowledge soutce: {knowledge_source}")
+        print(f"Atomic facts: {atomic_facts}")
+        print(f"Atomic facts type: {type(atomic_facts)}")
 
         # Prompt Construction
         for atom in atomic_facts:
