@@ -271,7 +271,9 @@ class FactScorer(object):
             if self.lm:
                 self.logger.debug("Retrieving passages from %s", knowledge_source)
                 print("Retrieving passages from %s", knowledge_source)
+                print(f"Retrieval object: {self.retrieval}")
                 passages = self.retrieval[knowledge_source].get_passages(topic, atom, k=5)
+                
                 if not passages:
                     return None
                 definition = "Answer the question about {} based on the given context.\n\n".format(topic)
