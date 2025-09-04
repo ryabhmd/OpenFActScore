@@ -222,6 +222,27 @@ class Retrieval(object):
         indices = np.argsort(-scores)[:k]
         return [passages[i] for i in indices]
 
+    def get_gtr_passages_updated(self, topic, retrieval_query, passages, k):
+        """
+        Updated retrieval (Raia) -> no need for title
+        """
+        self.logger.debug(f"topic: {topic}, retrieval_query: {retrieval_query},k={k} passages:\n{passages}")
+        if self.encoder is None:
+            self.load_encoder()
+        if topic in self.embed_cache:
+            passage_vectors = self.embed_cache[topic]
+        else:
+            inputs = [psg.replace("<s>", "").replace("</s>", "") for psg in passages]
+            passage_vectors = self.encoder.encode(inputs, batch_size=self.batch_size, device=self.encoder.device)
+            self.embed_cache[topic] = passage_vectors
+            self.add_n_embed += 1
+        query_vectors = self.encoder.encode([retrieval_query], 
+                                            batch_size=self.batch_size,
+                                            device=self.encoder.device)[0]
+        scores = np.inner(query_vectors, passage_vectors)
+        indices = np.argsort(-scores)[:k]
+        return [passages[i] for i in indices]
+
     def get_passages(self, topic, question, k):
         self.logger.debug(f"retrieving passages with {self.retrieval_type}")
         print(f"retrieving passages with {self.retrieval_type}")
