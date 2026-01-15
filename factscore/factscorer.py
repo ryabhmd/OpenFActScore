@@ -371,7 +371,10 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', type=int, default=10,
                         help="Hyperparameter for length penalty.")
     parser.add_argument('--knowledge_source', type=str, default=None,
-                        help="Name of the knowledge source for retrieval.")
+                        help="Name of the knowledge source for retrieval (the .jsonl file).")
+    # Added the argument below because I already registered my knowledge sources, I need to simply give it the path to the DB file. 
+    parser.add_argument('--knowledge_source_path', type=str, default=None,
+                        help="Path of the knowledge source (formatted as .db) for retrieval.")
     parser.add_argument('--cost_estimate', type=str, default="consider_cache",
                         choices=["consider_cache", "ignore_cache"],
                         help="Option to consider or ignore cache in cost estimation.")
@@ -417,8 +420,8 @@ if __name__ == '__main__':
     )
 
     # test knwoledge source generation
-    knwoledge_source_path = "/netscratch/abu/SciFactCheck/OpenFActScore/.cache/factscore/sdl_survey.jsonl"
-    knwoledge_source_name = "sdl_survey"
+    knwoledge_source_path = args.knowledge_source_path
+    knwoledge_source_name = args.knwoledge_source
     fs.register_knowledge_source(name=knwoledge_source_name, data_path=knwoledge_source_path)
 
     print(f"Registered knwoledge source {knwoledge_source_name}.")
