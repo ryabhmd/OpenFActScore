@@ -433,18 +433,13 @@ if __name__ == '__main__':
             dp = json.loads(line)
             tot += 1
             if args.use_atomic_facts:
-                assert "annotations" in dp, "`--use_atomic_facts` requires `annotations` in the input data."
-                if dp["annotations"] is None:
-                    continue
                 topics.append(dp["topic"])
                 generations.append(dp["output"])
-                atomic_facts.append(
-                    [atom["text"] for sent in dp["annotations"] if sent[args.af_annotator] for atom in sent[args.af_annotator]]
-                )
+                atomic_facts.append(dp["atomic_facts"])
             else:
                 topics.append(dp["topic"])
                 generations.append(dp["output"])
-                print(f"Extracted topic: {topics}")
+                print(f"Extracted topic: {topics}. Atomic facts are not in the input file!")
             if args.n_samples is not None and tot == args.n_samples:
                 break
     if atomic_facts:
