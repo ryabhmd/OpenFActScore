@@ -421,7 +421,7 @@ if __name__ == '__main__':
 
     # test knwoledge source generation
     knwoledge_source_path = args.knowledge_source_path
-    knwoledge_source_name = args.knwoledge_source
+    knwoledge_source_name = args.knowledge_source
     fs.register_knowledge_source(name=knwoledge_source_name, data_path=knwoledge_source_path)
 
     print(f"Registered knwoledge source {knwoledge_source_name}.")
