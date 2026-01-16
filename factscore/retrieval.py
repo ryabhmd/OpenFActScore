@@ -99,6 +99,65 @@ class DocDB(object):
         self.connection.commit()
         #self.connection.close()
 
+    def build_db_full_papers(self, db_path, data_path):
+        """
+        **New function (Raia)**
+        Updated function that builds a DB where one row = one paragraph in the full paper. This is in order to have the retrieval process work per paragraph. 
+        """
+        import json
+        import sqlite3
+        import time
+        from transformers import RobertaTokenizer
+
+        tokenizer = RobertaTokenizer.from_pretrained("roberta-large")
+
+        self.connection = sqlite3.connect(db_path)
+        c = self.connection.cursor()
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS documents (
+                doc_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT,
+                para_id INTEGER,
+                text TEXT
+            );
+        """)
+
+        start_time = time.time()
+        tot = 0
+
+        with open(data_path, "r") as f:
+            for line in f:
+                dp = json.loads(line)
+
+                title = dp["title"]
+                paragraphs = dp["text"]
+
+                # Safety check
+                if not isinstance(paragraphs, list):
+                    continue
+
+                for para_id, para in enumerate(paragraphs):
+                    if not para or not para.strip():
+                        continue
+
+                    # Optional: clean common PDF artifacts
+                    para = para.replace("/uniFB01", "").replace("/uniFB02", "")
+
+                    # Optional: skip absurdly long paragraphs (rare, but happens)
+                    # token_len = len(tokenizer.tokenize(para))
+                    # if token_len > 1000:
+                    #     continue
+
+                    c.execute(
+                        "INSERT INTO documents (title, para_id, text) VALUES (?, ?, ?)",
+                        (title, para_id, para)
+                    )
+                    tot += 1
+
+        self.connection.commit()
+
+
     def get_text_from_title(self, title):
         """Fetch the raw text of the doc for 'doc_id'."""
         self.logger.debug("getting text from title `topic` = %s in the DB.", title)
@@ -120,21 +179,32 @@ class DocDB(object):
         """
         return results
         
-    def get_text_from_db(self):
+    
+    def get_paragraphs_from_db(self):
         """
         **New function (Raia)**
-        Fetch all text from the given DB
+        Fetch all paragraphs from the documents table.
+        Returns:
+            List[str]: list of paragraph texts (length > 1 if DB is non-empty)
         """
-        """Fetch the raw text of the doc for 'doc_id'."""
-        self.logger.debug("getting text from DB.")
+        self.logger.debug("getting paragraphs from DB.")
         print("Connecting to DB...")
+
         cursor = self.connection.cursor()
-        cursor.execute("SELECT text FROM documents")
-        results = cursor.fetchall()
-        results = [r for r in results]
-        print(f"Results: {results}")
+        cursor.execute("SELECT text FROM documents ORDER BY title, para_id")
+        rows = cursor.fetchall()
         cursor.close()
-        return results
+
+        # Unpack tuples -> strings
+        paragraphs = [row[0] for row in rows if row[0] and row[0].strip()]
+
+        assert len(paragraphs) > 1, (
+            "Expected more than one paragraph in DB. "
+            "Check DB population."
+        )
+        print(f"Fetched {len(paragraphs)} paragraphs.")
+        return paragraphs
+
 
 class Retrieval(object):
 
@@ -255,7 +325,7 @@ class Retrieval(object):
         
         if cache_key not in self.cache:
             print("Getting passages...")
-            passages = self.db.get_text_from_db()
+            passages = self.db.get_paragraphs_from_db()
             print("Got passages...")
             if not passages:
                 self.logger.debug(f"No Passages for {topic}  | {question}")

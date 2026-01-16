@@ -372,7 +372,7 @@ if __name__ == '__main__':
                         help="Hyperparameter for length penalty.")
     parser.add_argument('--knowledge_source', type=str, default=None,
                         help="Name of the knowledge source for retrieval (the .jsonl file).")
-    # Added the argument below because I already registered my knowledge sources, I need to simply give it the path to the DB file. 
+    # Added the argument below in case I already registered my knowledge sources, in this scenario I can give it the path to the DB file. 
     parser.add_argument('--knowledge_source_path', type=str, default=None,
                         help="Path of the knowledge source (formatted as .db) for retrieval.")
     parser.add_argument('--cost_estimate', type=str, default="consider_cache",
@@ -419,10 +419,9 @@ if __name__ == '__main__':
         abstain_detection_type=args.abstain_detection_type
     )
 
-    # test knwoledge source generation
-    knwoledge_source_path = args.knowledge_source_path
+    # knwoledge source generation
     knwoledge_source_name = args.knowledge_source
-    fs.register_knowledge_source(name=knwoledge_source_name, data_path=knwoledge_source_path)
+    fs.register_knowledge_source(name=knwoledge_source_name)
 
     print(f"Registered knwoledge source {knwoledge_source_name}.")
 
