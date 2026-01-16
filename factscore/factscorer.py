@@ -375,6 +375,9 @@ if __name__ == '__main__':
     # Added the argument below in case I already registered my knowledge sources, in this scenario I can give it the path to the DB file. 
     parser.add_argument('--knowledge_source_path', type=str, default=None,
                         help="Path of the knowledge source (formatted as .db) for retrieval.")
+    # Added the argument below to register the name of the DB.
+    parser.add_argument('--knowledge_source_name', type=str, default=None,
+                        help="Name of the registered DB (to be used in cache when saving results).")
     parser.add_argument('--cost_estimate', type=str, default="consider_cache",
                         choices=["consider_cache", "ignore_cache"],
                         help="Option to consider or ignore cache in cost estimation.")
@@ -420,10 +423,11 @@ if __name__ == '__main__':
     )
 
     # knwoledge source generation
-    knwoledge_source_name = args.knowledge_source
-    fs.register_knowledge_source(name=knwoledge_source_name)
+    knwoledge_source = args.knowledge_source
+    knowledge_source_name = args.knowledge_source_name
+    fs.register_knowledge_source(name=knowledge_source_name, data_path=knwoledge_source)
 
-    print(f"Registered knwoledge source {knwoledge_source_name}.")
+    print(f"Registered knwoledge source {knowledge_source_name}.")
 
     topics, generations, atomic_facts = [], [], []
     tot = 0

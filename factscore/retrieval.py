@@ -31,7 +31,7 @@ class DocDB(object):
         if len(cursor.fetchall())==0:
             assert data_path is not None, f"{self.db_path} is empty. Specify `data_path` in order to create a DB."
             print (f"{self.db_path} is empty. start building DB from {data_path}...")
-            self.build_db(self.db_path, data_path)
+            self.build_db_full_papers(self.db_path, data_path)
 
     def __enter__(self):
         return self
