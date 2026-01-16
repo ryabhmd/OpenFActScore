@@ -96,6 +96,8 @@ class FactScorer(object):
         cache_path = os.path.join(self.cache_dir, f"retrieval-{name}.json")
         embed_cache_path = os.path.join(self.cache_dir, f"retrieval-{name}.pkl")
 
+        print(f"db_path:{db_path}")
+        print(f"data_path:{data_path}")
         self.db[name] = DocDB(db_path=db_path, data_path=data_path)
         self.retrieval[name] = Retrieval(self.db[name], cache_path, embed_cache_path, batch_size=self.batch_size)
         if "npm" in self.model_name:
@@ -279,7 +281,7 @@ class FactScorer(object):
                 definition = "Answer the question about {} based on the given context.\n\n".format(topic)
                 context = ""
                 for psg_idx, psg in enumerate(reversed(passages)):
-                    context += "Text: {}\n\n".format(psg[0].replace("<s>", "").replace("</s>", ""))
+                    context += "Text: {}\n\n".format(psg.replace("<s>", "").replace("</s>", ""))
                 definition += context.strip()
                 if definition[-1] not in string.punctuation:
                     definition += "."
@@ -293,7 +295,8 @@ class FactScorer(object):
                         total_words += len(prompt.split())
                     continue
 
-                output = self.lm.generate(prompt)
+                output = self.lm._generate(prompts=prompt)
+                print(f"Output: {output}")
 
                 if isinstance(output[1], np.ndarray) and self.lm.logits:
                     # TODO: assert with tokenizer vocab len
@@ -311,6 +314,7 @@ class FactScorer(object):
                 else:
                     # when logits are unavailable
                     generated_answer = output[0].lower()
+                    print(f"generated answer: {generated_answer}")
                     if "true" in generated_answer or "false" in generated_answer:
                         if "true" in generated_answer and "false" not in generated_answer:
                             is_supported = True
@@ -465,7 +469,7 @@ if __name__ == '__main__':
         generations=generations,
         gamma=args.gamma,
         atomic_facts=atomic_facts if args.use_atomic_facts else None,
-        knowledge_source=args.knowledge_source,
+        knowledge_source=knowledge_source_name,
         verbose=args.verbose
     )
 

@@ -20,6 +20,7 @@ class DocDB(object):
 
     def __init__(self, db_path=None, data_path=None):
         self.db_path = db_path
+        print(db_path)
         self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
 
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -320,9 +321,7 @@ class Retrieval(object):
         retrieval_query = topic + " " + question.strip()
         print(f"Retrieval query: {retrieval_query}")
         cache_key = topic + "#" + retrieval_query
-        print(f"Cache key: {cache_key}")
-        print(f"self.cache: {self.cache}")
-        
+             
         if cache_key not in self.cache:
             print("Getting passages...")
             passages = self.db.get_paragraphs_from_db()
@@ -337,11 +336,8 @@ class Retrieval(object):
                 self.cache[cache_key] = self.get_gtr_passages_updated(topic, retrieval_query, passages, k)
             assert len(self.cache[cache_key]) in [k, len(passages)]
             self.add_n += 1
-        
-            
+          
         return self.cache[cache_key]
 
         
-        
-
-
+    

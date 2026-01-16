@@ -80,7 +80,7 @@ class HFmodel(LM):
         if is_single:
             prompts = [prompts]
         if self.logits is False and self.mode == "afv":
-            max_output_length = 3
+            max_output_length = max_output_length # Raia: changed from 3 because some answeres were too short to contain a real True/False output.
         # Force output to the ids for True or False
         force_id = [self.true_id, self.false_id] if self.logits else None
 
@@ -111,6 +111,8 @@ class HFmodel(LM):
             # saving the logits for the very first token
             gen_scores = gen_outputs["scores"][0][0].detach().cpu().numpy()
             gen = self.tokenizer.decode(gen_tokens[0, curr_input_ids.shape[-1]:], skip_special_tokens=True)
+
+            print(f"Model generation:{gen}")
 
             if end_if_newline:
                 gen = gen.split("\n")[0].strip()
