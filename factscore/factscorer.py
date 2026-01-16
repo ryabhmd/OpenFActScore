@@ -440,11 +440,11 @@ if __name__ == '__main__':
             tot += 1
             if args.use_atomic_facts:
                 topics.append(dp["topic"])
-                generations.append(dp["output"])
+                generations.append(dp["generation"])
                 atomic_facts.append(dp["atomic_facts"])
             else:
                 topics.append(dp["topic"])
-                generations.append(dp["output"])
+                generations.append(dp["generation"])
                 print(f"Extracted topic: {topics}. Atomic facts are not in the input file!")
             if args.n_samples is not None and tot == args.n_samples:
                 break
