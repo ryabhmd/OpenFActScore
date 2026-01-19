@@ -64,6 +64,7 @@ class FactScorer(object):
             self.lm = HFmodel(self.afv_model,
                                 cache_file=os.path.join(cache_dir, self.model_name),
                                 logits=self.is_logits)
+            self.lm.load_model()
         self.logger.debug("%s",self.model_name)
 
     def generate_config_name(self):
@@ -260,7 +261,6 @@ class FactScorer(object):
     def _get_score(self, topic, generation, atomic_facts, knowledge_source, cost_estimate=None):
         decisions = []
         total_words = 0
-        print("_get_score function")
         print(f"Topic: {topic}")
         print(f"Knowledge soutce: {knowledge_source}")
         print(f"Atomic facts: {atomic_facts}")
@@ -295,7 +295,7 @@ class FactScorer(object):
                         total_words += len(prompt.split())
                     continue
 
-                output = self.lm._generate(prompts=prompt)
+                output = self.lm._generate(prompt)
                 print(f"Output: {output}")
 
                 if isinstance(output[1], np.ndarray) and self.lm.logits:
