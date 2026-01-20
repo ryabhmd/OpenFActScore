@@ -100,7 +100,7 @@ class FactScorer(object):
         print(f"db_path:{db_path}")
         print(f"data_path:{data_path}")
         self.db[name] = DocDB(db_path=db_path, data_path=data_path)
-        self.retrieval[name] = Retrieval(self.db[name], cache_path, embed_cache_path, batch_size=self.batch_size)
+        self.retrieval[name] = Retrieval(self.db[name], cache_path, embed_cache_path, retrieval_type="gtr-t5-large", batch_size=self.batch_size)
         if "npm" in self.model_name:
             cache_path = os.path.join(self.cache_dir, f"bm25-{name}.json")
             embed_cache_path = os.path.join(self.cache_dir, f"bm25-{name}.pkl")
@@ -430,7 +430,7 @@ if __name__ == '__main__':
         cache_dir=args.cache_dir,
         openai_key=args.openai_key,
         cost_estimate=args.cost_estimate,
-        abstain_detection_type=args.abstain_detection_type
+        abstain_detection_type=args.abstain_detection_type,
     )
 
     # knwoledge source generation
