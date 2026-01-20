@@ -38,7 +38,7 @@ from datetime import datetime
 
 from datasets import load_dataset
 
-from utils import build_openfactscore_input, get_knowledge_source_name
+from scifactcheck.utils import build_openfactscore_input, get_knowledge_source_name
 from factscore.factscorer import FactScorer
 
 class OFSEval:
@@ -73,6 +73,9 @@ class OFSEval:
         # step 2: read HF data
         self.scifactcheck_data = load_dataset(hf_dataset)
         
+        print(f"input claims {len(self.ofs_input)}")
+        print(f"hf {len(self.scifactcheck_data['train'])}")
+
         assert len(self.ofs_input) == len(self.scifactcheck_data["train"])
         assert isinstance(self.ofs_input[0], dict)
 
@@ -170,7 +173,6 @@ class OFSEval:
                 "ofs_result": results,
                 "knowledge_source": knowledge_source_path,
                 "afv_model": self.afv_model,
-                # TODO add retrieval results + afv_model output
             }
 
             all_results.append(entity_result)
@@ -209,7 +211,7 @@ class OFSEval:
         for entity in entities:
             sample = build_openfactscore_input(
                 entity,
-                drop_empty=True,
+                drop_empty=False,
                 deduplicate=True,
             )
 

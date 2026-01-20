@@ -5,7 +5,7 @@ import re
 
 def build_openfactscore_input(
     entity: Dict,
-    drop_empty: bool = True,
+    drop_empty: bool = False,
     deduplicate: bool = True,
 ) -> Optional[Dict]:
     """
@@ -16,7 +16,7 @@ def build_openfactscore_input(
     entity : dict
         One JSON object from your extracted claims file.
     drop_empty : bool
-        Whether to drop entities with no valid atomic facts.
+        Whether to drop entities with no valid atomic facts. --> Note that if this is True, the assert in ofs_eval will fail because the function will skip these entries and the length of the returned results will be < 2500
     deduplicate : bool
         Whether to remove duplicate atomic facts (preserving order).
 
@@ -78,7 +78,8 @@ def get_knowledge_source_name(entity_idx: int, source: str, id:str):
     :type id: str
     """
     if source == "doi":
-        return str(entity_idx)+"_"+id
+        doi_id = id.strip().replace("/", "_")
+        return str(entity_idx)+"_"+doi_id
     
     elif source == "iep":
         iep_id = re.sub(r"\s+", "_", id.strip().lower())
