@@ -19,7 +19,7 @@ class FactScorer(object):
     def __init__(self,
                  afv_model="meta-llama/Llama-3.1-8B-Instruct",
                  afg_model="meta-llama/Llama-3.1-8B-Instruct",
-                 is_npm=True,
+                 is_npm=False,
                  is_logits=False,
                  #is_retrieval=True,
                  data_dir=".cache/factscore",
