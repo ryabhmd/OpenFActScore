@@ -81,15 +81,11 @@ class OFSEval:
 
     def run(
             self, 
-
+            output_file: str
     ):
         """
         Run OpenFactScore evaluation by iterating over scientific entities.
-
-        Returns
-        -------
-        List[dict]
-            One result dict per entity, including scores and metadata.
+        The function writes OFS results as it iterates over entities in the given output_file path.
         """
         # set up logging
         logging.basicConfig(
@@ -108,78 +104,83 @@ class OFSEval:
         all_results = []
 
         # step 3: iterate over scientific entities
-        for idx, (entity, ofs_dp) in enumerate(
-            tqdm(
-                zip(self.scifactcheck_data["train"], self.ofs_input),
-                total=len(self.ofs_input),
-                desc="OFS for entities"
-            )
-        ):
-            logger.debug(f"Evaluating entity {idx}, {entity}")
+        # open output file once
+        with open(output_file, "w", encoding="utf-8") as f:
 
-            # step 4 initialize FactScorer object
-            fs = FactScorer(
-                afv_model=self.afv_model,
-                data_dir=self.data_dir,
-                model_dir=self.model_dir,
-                cache_dir=self.cache_dir,
-            )
+            for idx, (entity, ofs_dp) in enumerate(
+                tqdm(
+                    zip(self.scifactcheck_data["train"], self.ofs_input),
+                    total=len(self.ofs_input),
+                    desc="OFS for entities"
+                )
+            ):
+                logger.debug(f"Evaluating entity {idx}, {entity}")
 
-            logger.debug("Initialized FactScorer")
-
-            # step 5: register knowledge source 
-            if entity["paper_doi"]:
-                source = "doi"
-                entity_id = entity["paper_doi"]
-            else:
-                source = "iep"
-                entity_id = entity["title"]
-
-            knowledge_source_name = get_knowledge_source_name(entity_idx=idx, source=source, id=entity_id)
-            knowledge_source_path = os.path.join(
-                self.knowledge_source_dir,
-                f"{knowledge_source_name}.jsonl"
+                # step 4 initialize FactScorer object
+                fs = FactScorer(
+                    afv_model=self.afv_model,
+                    data_dir=self.data_dir,
+                    model_dir=self.model_dir,
+                    cache_dir=self.cache_dir,
                 )
 
-            fs.register_knowledge_source(
-                name=knowledge_source_name,
-                data_path=knowledge_source_path,
-            )
+                logger.debug("Initialized FactScorer")
 
-            logger.debug(
-                f"Registered knowledge source {knowledge_source_name}"
-            )
+                # step 5: register knowledge source 
+                if entity["paper_doi"]:
+                    source = "doi"
+                    entity_id = entity["paper_doi"]
+                else:
+                    source = "iep"
+                    entity_id = entity["title"]
 
-            # step 6: prepare inputs for scoring
-            topics = [ofs_dp["topic"]]
-            generations = [ofs_dp["generation"]]
-            atomic_facts = [ofs_dp["atomic_facts"]]
+                knowledge_source_name = get_knowledge_source_name(entity_idx=idx, source=source, id=entity_id)
+                knowledge_source_path = os.path.join(
+                    self.knowledge_source_dir,
+                    f"{knowledge_source_name}.jsonl"
+                    )
 
-            # step 7: run FactScorer 
-            results = fs.get_score(
-                topics=topics,
-                generations=generations,
-                atomic_facts=atomic_facts,
-                knowledge_source=knowledge_source_name,
-            )
+                fs.register_knowledge_source(
+                    name=knowledge_source_name,
+                    data_path=knowledge_source_path,
+                )
 
-            # step 8: store per-entity result 
-            entity_result = {
-                "entity_index": idx,
-                "entity": entity["scientific_entity"],
-                "topic": ofs_dp["topic"],
-                "generation": ofs_dp["generation"],
-                "atomic_facts": ofs_dp["atomic_facts"],
-                "ofs_result": results,
-                "knowledge_source": knowledge_source_path,
-                "afv_model": self.afv_model,
-            }
+                logger.debug(
+                    f"Registered knowledge source {knowledge_source_name}"
+                )
 
-            all_results.append(entity_result)
+                # step 6: prepare inputs for scoring
+                topics = [ofs_dp["topic"]]
+                generations = [ofs_dp["generation"]]
+                atomic_facts = [ofs_dp["atomic_facts"]]
+
+                # step 7: run FactScorer 
+                results = fs.get_score(
+                    topics=topics,
+                    generations=generations,
+                    atomic_facts=atomic_facts,
+                    knowledge_source=knowledge_source_name,
+                )
+
+                # step 8: store per-entity result 
+                entity_result = {
+                    "entity_index": idx,
+                    "entity": entity["scientific_entity"],
+                    "topic": ofs_dp["topic"],
+                    "generation": ofs_dp["generation"],
+                    "atomic_facts": ofs_dp["atomic_facts"],
+                    "ofs_result": results,
+                    "knowledge_source": knowledge_source_path,
+                    "afv_model": self.afv_model,
+                }
+
+            # write results of entity into output file
+            f.write(json.dumps(entity_result, ensure_ascii=False) + "\n")
+            f.flush()          # ensures progress is saved to disk
+            os.fsync(f.fileno())  # extra safety on clusters
+
 
         logger.critical("Finished OpenFactScore evaluation")
-
-        return all_results
 
     
     def prepare_ofs_inputs(
@@ -252,8 +253,6 @@ if __name__ == "__main__":
         debug_logger=args.debug_logger
     )
 
-    results_per_model = ofs_eval.run()
-
     # ensure output directory exists
     os.makedirs(args.output_path, exist_ok=True)
     
@@ -263,14 +262,9 @@ if __name__ == "__main__":
         args.output_path,
         f"ofs_results_{args.afv_model.replace('/', '_')}_{timestamp}.jsonl"
         )
-    
-    # write results
-    with open(output_file, "w", encoding="utf-8") as f:
-        for entity_result in results_per_model:
-            f.write(json.dumps(entity_result, ensure_ascii=False) + "\n")
-            
+
+    results_per_model = ofs_eval.run(output_file)
+
     print(f"Saved OFS evaluation results (JSONL) to {output_file}")
-
-
 
 
