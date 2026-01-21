@@ -493,14 +493,3 @@ if __name__ == '__main__':
         f.write(json.dumps(results, default=convert_to_serializable) + "\n")
     print(f"Saved to: {out_path}")
 
-    # if args.use_atomic_facts and args.af_annotator == "human-atomic-facts":
-    #     # Get CK agreement
-    #     ck_scorer = CKScore(out_path)
-    #     out["cohen_kappa"] = ck_scorer.get_cks()
-
-    #     logger.critical("Cohen's kappa: %.2f" % out["cohen_kappa"])
-    #     logger.critical("Saved to: %s", out_path)
-    #     print(f"Saved CK Score to: {out_path}")
-
-    #     with open (out_path, 'w') as f:
-    #         f.write(json.dumps(results, default=convert_to_serializable) + "\n")
