@@ -174,10 +174,10 @@ class OFSEval:
                     "afv_model": self.afv_model,
                 }
 
-            # write results of entity into output file
-            f.write(json.dumps(entity_result, ensure_ascii=False) + "\n")
-            f.flush()          # ensures progress is saved to disk
-            os.fsync(f.fileno())  # extra safety on clusters
+                # write results of entity into output file
+                f.write(json.dumps(entity_result, ensure_ascii=False) + "\n")
+                f.flush()          # ensures progress is saved to disk
+                os.fsync(f.fileno())  # extra safety on clusters
 
 
         logger.critical("Finished OpenFactScore evaluation")
