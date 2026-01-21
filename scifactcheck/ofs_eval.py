@@ -100,10 +100,16 @@ class OFSEval:
 
         logger = logging.getLogger(__name__)
         logger.critical("Started OpenFactScore entity-wise evaluation")
-
-        all_results = []
-
-        # step 3: iterate over scientific entities
+        
+        # step 3 initialize FactScorer object
+        fs = FactScorer(
+            afv_model=self.afv_model,
+            data_dir=self.data_dir,
+            model_dir=self.model_dir,
+            cache_dir=self.cache_dir,
+            )
+        
+        # step 4: iterate over scientific entities
         # open output file once
         with open(output_file, "w", encoding="utf-8") as f:
 
@@ -115,15 +121,7 @@ class OFSEval:
                 )
             ):
                 logger.debug(f"Evaluating entity {idx}, {entity}")
-
-                # step 4 initialize FactScorer object
-                fs = FactScorer(
-                    afv_model=self.afv_model,
-                    data_dir=self.data_dir,
-                    model_dir=self.model_dir,
-                    cache_dir=self.cache_dir,
-                )
-
+                
                 logger.debug("Initialized FactScorer")
 
                 # step 5: register knowledge source 
