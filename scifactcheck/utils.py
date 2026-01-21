@@ -78,7 +78,7 @@ def get_knowledge_source_name(entity_idx: int, source: str, id:str):
     :type id: str
     """
     if source == "doi":
-        doi_id = id.strip().replace("/", "_")
+        doi_id = id.strip().lower().replace("/", "_")
         return str(entity_idx)+"_"+doi_id
     
     elif source == "iep":
