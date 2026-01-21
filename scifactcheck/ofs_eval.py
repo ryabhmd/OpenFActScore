@@ -237,6 +237,8 @@ if __name__ == "__main__":
                         help="Directory to store cache files.")
     parser.add_argument('--output_path', type=str, default=".cache/factscore",
                         help="Path to write OFS evaluation results in detail.")
+    parser.add_argument('--llm_name', type=str, required=True,
+                        help="Name of the LLM the claims come from, to be used in the naming scheme of the result")
     parser.add_argument('--debug_logger', action='store_true')
     
     args = parser.parse_args()
@@ -258,7 +260,7 @@ if __name__ == "__main__":
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_file = os.path.join(
         args.output_path,
-        f"ofs_results_{args.afv_model.replace('/', '_')}_{timestamp}.jsonl"
+        f"ofs_results_{args.llm_name.replace('/', '_')}_{timestamp}.jsonl"
         )
 
     results_per_model = ofs_eval.run(output_file)

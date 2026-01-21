@@ -254,7 +254,6 @@ class FactScorer(object):
 
         if gamma:
             out["init_score"] = np.mean(init_scores)
-        self.lm.unload_model()
         
         return out
 
