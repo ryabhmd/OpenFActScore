@@ -82,7 +82,7 @@ def get_knowledge_source_name(entity_idx: int, source: str, id:str):
         return str(entity_idx)+"_"+doi_id
     
     elif source == "iep":
-        iep_id = re.sub(r"\s+", "_", id.strip().lower())
+        iep_id = re.sub(r"[^a-z0-9_]+", "", re.sub(r"\s+", "_", id.strip().lower()))
         return  str(entity_idx)+"_"+iep_id
     
     else:
