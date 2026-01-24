@@ -315,17 +315,17 @@ class Retrieval(object):
         indices = np.argsort(-scores)[:k]
         return [passages[i] for i in indices]
 
-    def get_passages(self, topic, question, k):
+    def get_passages(self, topic, question, k, all_passages):
         self.logger.debug(f"retrieving passages with {self.retrieval_type}")
-        print(f"retrieving passages with {self.retrieval_type}")
+
         retrieval_query = topic + " " + question.strip()
-        print(f"Retrieval query: {retrieval_query}")
+        
         cache_key = topic + "#" + retrieval_query
              
         if cache_key not in self.cache:
-            print("Getting passages...")
-            passages = self.db.get_paragraphs_from_db()
-            print("Got passages...")
+            
+            passages = all_passages
+            
             if not passages:
                 self.logger.debug(f"No Passages for {topic}  | {question}")
                 return None

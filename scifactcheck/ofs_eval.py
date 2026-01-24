@@ -153,9 +153,9 @@ class OFSEval:
                 atomic_facts = [ofs_dp["atomic_facts"]]
 
                 # step 7: run FactScorer 
-                results = fs.get_score(
-                    topics=topics,
-                    generations=generations,
+                results, init_score, gamma_score = fs._get_score_batches(
+                    topic=topics,
+                    generation=generations,
                     atomic_facts=atomic_facts,
                     knowledge_source=knowledge_source_name,
                 )
@@ -170,6 +170,8 @@ class OFSEval:
                     "ofs_result": results,
                     "knowledge_source": knowledge_source_path,
                     "afv_model": self.afv_model,
+                    "init_score": init_score,
+                    "gamma_score": gamma_score
                 }
 
                 # write results of entity into output file

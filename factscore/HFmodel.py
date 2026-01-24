@@ -73,8 +73,53 @@ class HFmodel(LM):
         torch.cuda.empty_cache()    # Free up GPU memory
         self.logger.debug("Model unloaded and GPU memory cleared.")
 
+    def _generate_batches(
+            self,
+            prompts,
+            max_sequence_length=2048,
+            max_output_length=32
+        ):
+        
+        is_single = isinstance(prompts, str)
+        if is_single:
+            prompts = [prompts]
 
-    def _generate(self, prompts, max_sequence_length=2048, max_output_length=128,
+        tokens = self.tokenizer(
+                prompts,
+                padding=True,
+                truncation=True,
+                max_length=max_sequence_length,
+                return_tensors="pt"
+            )
+
+        input_ids = tokens.input_ids.cuda()
+        attention_mask = tokens.attention_mask.cuda()
+
+        gen_outputs = self.model.generate(
+                input_ids, 
+                attention_mask=attention_mask,
+                max_new_tokens=max_output_length,
+                return_dict_in_generate=True,
+                )
+        
+        sequences = gen_outputs.sequences
+        scores = gen_outputs.scores  # list[tensor], one per generated token
+
+        generations = []
+
+        for i in range(len(prompts)):
+            gen_tokens = sequences[i, input_ids.shape[-1]:]
+            gen = self.tokenizer.decode(gen_tokens, skip_special_tokens=True)
+
+            generations.append(gen)
+
+        if is_single:
+            return generations[0]
+
+        return generations
+        
+
+    def _generate(self, prompts, max_sequence_length=2048, max_output_length=64,
                   end_if_newline=False, end_if_second_newline=False, verbose=False):
         is_single = type(prompts)==str
         if is_single:
@@ -106,6 +151,7 @@ class HFmodel(LM):
                 output_scores=True,
                 num_beams=2 if force_id else 1,  # Use beam search when force_words_ids is specified
                 do_sample=False if force_id else True,
+                use_cache=False
             )
             gen_tokens = gen_outputs["sequences"]
             # saving the logits for the very first token
@@ -126,11 +172,14 @@ class HFmodel(LM):
             self.logger.debug("scores: %s\ntokens:%s\ngen:%s", gen_scores, gen_tokens, gen)
             generations.append(gen)
             scores.append(gen_scores)
+        
+        gc.collect()
+        torch.cuda.empty_cache()
 
         assert len(generations)==len(prompts)==len(scores)
         if is_single:
             return generations[0], scores[0]
-        
+
         return generations, scores
 
     def chat_formatter(self, prompts:list):

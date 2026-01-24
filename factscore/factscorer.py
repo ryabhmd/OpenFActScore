@@ -4,6 +4,8 @@ import json
 import logging
 import os
 import numpy as np
+import torch
+import gc
 
 from tqdm import tqdm
 from factscore.abstain_detection import is_response_abstained
@@ -20,7 +22,7 @@ class FactScorer(object):
                  afv_model="meta-llama/Llama-3.1-8B-Instruct",
                  afg_model="meta-llama/Llama-3.1-8B-Instruct",
                  is_npm=False,
-                 is_logits=False,
+                 is_logits=True,
                  #is_retrieval=True,
                  data_dir=".cache/factscore",
                  model_dir=".cache/factscore",
@@ -257,14 +259,128 @@ class FactScorer(object):
         
         return out
 
+    def _chunked(self, iterable, batch_size):
+        for i in range(0, len(iterable), batch_size):
+            yield iterable[i:i + batch_size]
+
+
+    def _get_score_batches(
+            self,
+            topic,
+            generation,
+            atomic_facts,
+            knowledge_source,
+            batch_size=4,
+            gamma=10,
+        ):
+        """
+        The function is designed to be used per entity -> returnd dict of decisions for each atom in entity + the overall OFS of the entity
+        """
+        decisions = []
+        total_words = 0
+
+        prompts = []
+        atoms = []
+        contexts = []
+
+        # 1. Build prompts for all atomic facts in topic
+        
+        # get all passages for topic -> this is the same for all atoms so no need to do it in the loop
+
+        all_passages = self.retrieval[knowledge_source].db.get_paragraphs_from_db()
+
+        for atom in atomic_facts[0]:
+            
+            atom = atom.strip()
+
+            passages = self.retrieval[knowledge_source].get_passages(topic[0], atom, k=5, all_passages=all_passages)
+
+            definition = f"Answer the question about {topic} based on the given context.\n\n"
+
+            # build context from passages
+            context = ""
+            for psg in reversed(passages):
+                context += f"Text: {psg.replace('<s>', '').replace('</s>', '')}\n\n"
+
+            definition += context.strip()
+            if definition[-1] not in string.punctuation:
+                definition += "."
+
+            prompt = (
+                    f"{definition}\n\n"
+                    f"Input: {atom} True or False?\n"
+                    f"Answer:"
+                 )
+
+            prompts.append(prompt)
+            atoms.append(atom)
+            contexts.append(context)
+
+        print(f"Built all prompts for topic: {topic[0]}")
+
+        # 2. AFV using batched generation
+        if self.lm:
+            generations = []
+            for batch_prompts in self._chunked(prompts, batch_size):
+                with torch.no_grad():
+                    outputs = self.lm._generate_batches(batch_prompts)
+                generations.extend(outputs)
+
+            gc.collect()
+            torch.cuda.empty_cache()
+            print(f"Received LM generations for {len(prompts)} prompts")
+        else:
+            raise RuntimeError(
+                    "No LM defined for AFV.")
+
+        # 3. Parse generations to get decisions
+        for atom, context, gen in zip(atoms, contexts, generations):
+            generated_answer = gen.lower()
+            print(f"Generated answer for {atom}: {generated_answer}")
+
+            if "true" in generated_answer or "false" in generated_answer:
+                if "true" in generated_answer and "false" not in generated_answer:
+                    is_supported = True
+                elif "false" in generated_answer and "true" not in generated_answer:
+                    is_supported = False
+                else:
+                    is_supported = generated_answer.index("true") > generated_answer.index("false")
+
+            else:
+                tokens = generated_answer.translate(
+                        str.maketrans("", "", string.punctuation)
+                    ).split()
+                is_supported = all(
+                        keyword not in tokens
+                        for keyword in ["not", "cannot", "unknown", "information"]
+                    )
+
+            decisions.append(
+                    {
+                        "atom": atom,
+                        "context": context,
+                        "generation": gen,
+                        "is_supported": is_supported
+                }
+            )
+
+        # 4. Compute score for entity
+        # Score is the average number of "is_supported" for generation
+        init_score = np.mean([d["is_supported"] for d in decisions])
+        gamma_score = None
+
+        if gamma:
+            penalty = 1.0 if len(atomic_facts[0])>gamma else np.exp(1-gamma/len(atomic_facts[0]))
+            gamma_score = penalty * init_score
+
+        return decisions, init_score, gamma_score
+
+
+
     def _get_score(self, topic, generation, atomic_facts, knowledge_source, cost_estimate=None):
         decisions = []
         total_words = 0
-        print(f"Topic: {topic}")
-        print(f"Knowledge soutce: {knowledge_source}")
-        print(f"Atomic facts: {atomic_facts}")
-        print(f"Atomic facts type: {type(atomic_facts)}")
-
+        
         # Prompt Construction
         for atom in atomic_facts:
             atom = atom.strip()
@@ -286,13 +402,6 @@ class FactScorer(object):
                     definition += "."
                 prompt = "{}\n\nInput: {} True or False?\nAnswer:".format(definition.strip(), atom.strip())
                 print(f"Prompt: {prompt}")
-
-                if cost_estimate:
-                    if cost_estimate == "consider_cache" and (prompt.strip() + "_0") not in self.lm.cache_dict:
-                        total_words += len(prompt.split())
-                    elif cost_estimate == "ignore_cache":
-                        total_words += len(prompt.split())
-                    continue
 
                 output = self.lm._generate(prompt)
                 print(f"Output: {output}")
@@ -335,7 +444,7 @@ class FactScorer(object):
                 {
                     "atom": atom, 
                     "retrieval_results": context, 
-                    "afv_model_output": generated_answer, 
+                    #"afv_model_output": generated_answer, 
                     "is_supported": is_supported
                     }
                 )
