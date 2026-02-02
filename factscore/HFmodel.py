@@ -101,7 +101,9 @@ class HFmodel(LM):
                 max_new_tokens=max_output_length,
                 return_dict_in_generate=True,
                 )
-        
+
+        self.logger.critical(" - HFmodel - generated output for batch")
+
         sequences = gen_outputs.sequences
         scores = gen_outputs.scores  # list[tensor], one per generated token
 

@@ -19,6 +19,7 @@ from factscore.retrieval import DocDB, Retrieval
 
 class FactScorer(object):
     def __init__(self,
+                 tokenizer,
                  afv_model="meta-llama/Llama-3.1-8B-Instruct",
                  afg_model="meta-llama/Llama-3.1-8B-Instruct",
                  is_npm=False,
@@ -31,6 +32,7 @@ class FactScorer(object):
                  cost_estimate="consider_cache",
                  abstain_detection_type=None,
                  batch_size=256):
+        self.tokenizer = tokenizer
         self.afg_model = afg_model
         self.afv_model = afv_model
         self.is_npm = is_npm
@@ -67,6 +69,7 @@ class FactScorer(object):
                                 cache_file=os.path.join(cache_dir, self.model_name),
                                 logits=self.is_logits)
             self.lm.load_model()
+            
         self.logger.debug("%s",self.model_name)
 
     def generate_config_name(self):
@@ -88,7 +91,7 @@ class FactScorer(object):
         for k, v in self.retrieval.items():
             v.save_cache()
 
-    def register_knowledge_source(self, name="enwiki-20230401", db_path=None, data_path=None):
+    def register_knowledge_source(self, encoder, name="enwiki-20230401", db_path=None, data_path=None, retrieval_type = "gtr-t5-large"):
         assert name not in self.retrieval, f"{name} already registered"
         if db_path is None:
             db_path = os.path.join(self.data_dir, f"{name}.db")
@@ -101,8 +104,21 @@ class FactScorer(object):
 
         print(f"db_path:{db_path}")
         print(f"data_path:{data_path}")
-        self.db[name] = DocDB(db_path=db_path, data_path=data_path)
-        self.retrieval[name] = Retrieval(self.db[name], cache_path, embed_cache_path, retrieval_type="gtr-t5-large", batch_size=self.batch_size)
+        self.db[name] = DocDB(
+                tokenizer=self.tokenizer, 
+                db_path=db_path, 
+                data_path=data_path
+                )
+
+        self.retrieval[name] = Retrieval(
+                encoder=encoder, 
+                db=self.db[name], 
+                cache_path=cache_path, 
+                embed_cache_path=embed_cache_path, 
+                retrieval_type=retrieval_type, 
+                batch_size=self.batch_size
+                )
+
         if "npm" in self.model_name:
             cache_path = os.path.join(self.cache_dir, f"bm25-{name}.json")
             embed_cache_path = os.path.join(self.cache_dir, f"bm25-{name}.pkl")
@@ -317,18 +333,22 @@ class FactScorer(object):
             contexts.append(context)
 
         print(f"Built all prompts for topic: {topic[0]}")
+        self.logger.critical(f"Built all prompts for topic: {topic[0]}") 
 
         # 2. AFV using batched generation
         if self.lm:
+
             generations = []
             for batch_prompts in self._chunked(prompts, batch_size):
                 with torch.no_grad():
                     outputs = self.lm._generate_batches(batch_prompts)
                 generations.extend(outputs)
 
-            gc.collect()
-            torch.cuda.empty_cache()
+                gc.collect()
+                torch.cuda.empty_cache()
+            
             print(f"Received LM generations for {len(prompts)} prompts")
+            self.logger.critical(f"Received LM generations for {len(prompts)} prompts")
         else:
             raise RuntimeError(
                     "No LM defined for AFV.")
@@ -369,7 +389,7 @@ class FactScorer(object):
         init_score = np.mean([d["is_supported"] for d in decisions])
         gamma_score = None
 
-        if gamma:
+        if gamma and len(atomic_facts[0]) > 0:
             penalty = 1.0 if len(atomic_facts[0])>gamma else np.exp(1-gamma/len(atomic_facts[0]))
             gamma_score = penalty * init_score
 

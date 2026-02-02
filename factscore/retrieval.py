@@ -18,7 +18,8 @@ class DocDB(object):
     Implements get_doc_text(doc_id).
     """
 
-    def __init__(self, db_path=None, data_path=None):
+    def __init__(self, tokenizer, db_path=None, data_path=None):
+        self.tokenizer = tokenizer
         self.db_path = db_path
         print(db_path)
         self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
@@ -31,6 +32,16 @@ class DocDB(object):
         
         if len(cursor.fetchall())==0:
             assert data_path is not None, f"{self.db_path} is empty. Specify `data_path` in order to create a DB."
+            print (f"{self.db_path} is empty. start building DB from {data_path}...")
+            self.build_db_full_papers(self.db_path, data_path)
+
+        # Some DBs in cache were empty
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT text FROM documents ORDER BY title, para_id")
+        rows = cursor.fetchall()
+        cursor.close()
+
+        if len(rows) == 0:
             print (f"{self.db_path} is empty. start building DB from {data_path}...")
             self.build_db_full_papers(self.db_path, data_path)
 
@@ -49,8 +60,6 @@ class DocDB(object):
         self.connection.close()
 
     def build_db(self, db_path, data_path):
-        from transformers import RobertaTokenizer
-        tokenizer = RobertaTokenizer.from_pretrained("roberta-large")
         
         titles = set()
         output_lines = []
@@ -72,7 +81,7 @@ class DocDB(object):
                 passages = [[]]
                 for sent_idx, sent in enumerate(text):
                     assert len(sent.strip())>0
-                    tokens = tokenizer(sent)["input_ids"]
+                    tokens = self.tokenizer(sent)["input_ids"]
                     max_length = MAX_LENGTH - len(passages[-1])
                     if len(tokens) <= max_length:
                         passages[-1].extend(tokens)
@@ -83,7 +92,7 @@ class DocDB(object):
                             passages.append(tokens[offset:offset+MAX_LENGTH])
                             offset += MAX_LENGTH
                 
-                psgs = [tokenizer.decode(tokens) for tokens in passages if np.sum([t not in [0, 2] for t in tokens])>0]
+                psgs = [self.tokenizer.decode(tokens) for tokens in passages if np.sum([t not in [0, 2] for t in tokens])>0]
                 text = SPECIAL_SEPARATOR.join(psgs)
                 output_lines.append((title, text))
                 tot += 1
@@ -197,6 +206,7 @@ class DocDB(object):
         cursor.close()
 
         # Unpack tuples -> strings
+        
         paragraphs = [row[0] for row in rows if row[0] and row[0].strip()]
 
         assert len(paragraphs) > 1, (
@@ -209,8 +219,9 @@ class DocDB(object):
 
 class Retrieval(object):
 
-    def __init__(self, db, cache_path, embed_cache_path,
+    def __init__(self, encoder, db, cache_path, embed_cache_path,
                  retrieval_type="gtr-t5-large", batch_size=None):
+        self.encoder = encoder
         self.db = db
         self.cache_path = cache_path
         self.embed_cache_path = embed_cache_path
@@ -218,7 +229,6 @@ class Retrieval(object):
         self.batch_size = batch_size
         assert retrieval_type=="bm25" or retrieval_type.startswith("gtr-")
         
-        self.encoder = None
         self.load_cache()
         self.add_n = 0
         self.add_n_embed = 0
@@ -298,8 +308,7 @@ class Retrieval(object):
         Updated retrieval (Raia) -> no need for title
         """
         self.logger.debug(f"topic: {topic}, retrieval_query: {retrieval_query},k={k} passages:\n{passages}")
-        if self.encoder is None:
-            self.load_encoder()
+
         if topic in self.embed_cache:
             passage_vectors = self.embed_cache[topic]
         else:

@@ -1,6 +1,14 @@
 import json
 from typing import Dict, List, Optional
 import re
+import unicodedata
+
+def clean_title(name: str) -> str:
+    # Normalize to precomposed Unicode (matches your filenames)
+    name = unicodedata.normalize("NFC", name)
+
+    # Remove punctuation only
+    return re.sub(r'[<>:"/\\|?*,.()]', "", name)
 
 
 def build_openfactscore_input(
@@ -82,9 +90,9 @@ def get_knowledge_source_name(entity_idx: int, source: str, id:str):
         return str(entity_idx)+"_"+doi_id
     
     elif source == "iep":
-        iep_id = re.sub(r"[^a-z0-9_]+", "", re.sub(r"\s+", "_", id.strip().lower()))
+        text = id.lower()
+        iep_id = clean_title(text.replace(" ", "_"))
         return  str(entity_idx)+"_"+iep_id
     
     else:
         raise ValueError("Source for knowledge source name must be either 'doi' or 'iep'")
-    
