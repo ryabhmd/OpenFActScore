@@ -134,3 +134,36 @@ If using our package please cite:
       url={https://arxiv.org/abs/2507.05965}, 
 }
 ```
+
+# SciFactCheck
+
+## Running OFS for SciFactCheck
+
+```bash
+python -m scifactcheck.ofs_eval \
+    --extracted_claims_path ./data/claims_input_files/_veriscore_input.jsonl \
+    --knowledge_source_dir ./data/OFS_KB_files/jsonl_clean_files \
+    --afv_model google/gemma-7b-it \
+    --data_dir .cache/factscore \
+    --model_dir .cache/factscore \
+    --cache_dir .cache/factscore \
+    --output_path ./results \
+    --llm_name 
+```
+
+### Arguments
+
+| Argument | Description |
+|---|---|
+| `--extracted_claims_path` | Path to VeriScore-extracted claims JSONL (output of VeriScore Step 1) |
+| `--knowledge_source_dir` | Path to directory containing per-concept KB files in JSONL format |
+| `--afv_model` | Atomic fact verification model (default: `google/gemma-7b-it`) |
+| `--llm_name` | Name of the evaluated LLM (used for output naming) |
+| `--data_dir` | FActScore cache directory for data |
+| `--model_dir` | FActScore cache directory for models |
+| `--cache_dir` | FActScore cache directory |
+| `--output_path` | Directory to save evaluation results |
+| `--debug_logger` | Enable debug-level logging |
+
+Custom KBs are pre-built from the full text of each concept's source survey paper and stored as one JSONL file per concept. Each file contains the parsed full text of the corresponding survey paper,
+used as the knowledge source for verifying claims about that concept.
