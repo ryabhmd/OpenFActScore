@@ -52,7 +52,7 @@ class OFSEval:
         extracted_claims_path: str,
         knowledge_source_dir: str,
         llm_name: str, # the name of the llm output being evaluated to be used in the logger name
-        hf_dataset: str = "rabuahmad/scifactcheck",
+        hf_dataset: str = "",
         afv_model: str = "google/gemma-7b-it",
         data_dir=".cache/factscore",
         model_dir=".cache/factscore",
@@ -293,7 +293,7 @@ if __name__ == "__main__":
         extracted_claims_path=args.extracted_claims_path, 
         knowledge_source_dir=args.knowledge_source_dir,
         llm_name=args.llm_name,
-        hf_dataset="rabuahmad/scifactcheck",
+        hf_dataset="",
         afv_model=args.afv_model,
         data_dir=args.data_dir,
         model_dir=args.model_dir,
